@@ -1,10 +1,36 @@
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import CompleteProfileForm from "@/components/profile/CompleteProfileForm";
+import { createClient } from "@/lib/supabase/server";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
 export default async function Home() {
+    // Assignment #2: get the songs
     const { data: songs, error } = await supabase
         .from("Songs")
         .select("*");
 
+    // Assignment #3: determine who is logged in
+    const authSupabase = await createClient();
+
+    const {
+        data: { user },
+    } = await authSupabase.auth.getUser();
+
+    // If someone is logged in, get their profile
+    let profile = null;
+
+    if (user) {
+        const { data } = await authSupabase
+            .from("profiles")
+            .select("first_name, last_name, avatar_url")
+            .eq("id", user.id)
+            .single();
+
+        profile = data;
+    }
+
+    // Keep your Assignment #2 error handling
     if (error) {
         return (
             <main>
@@ -25,6 +51,27 @@ export default async function Home() {
         >
             <h1>My Songs</h1>
 
+            {user && (
+                <div>
+                    <p>
+                        <Link href="/profile">Profile</Link>
+                    </p>
+
+                    <p>
+                        <Link href="/collection">My Collection</Link>
+                    </p>
+                </div>
+            )}
+
+            {/* Logged out: offer Google login */}
+            {!user && <GoogleSignInButton />}
+
+            {/* Logged in, but profile isn't complete: ask for names */}
+            {user && (!profile?.first_name || !profile?.last_name) && (
+                <CompleteProfileForm userId={user.id} />
+            )}
+
+            {/* Assignment #2 song list */}
             <div style={{ display: "grid", gap: "16px" }}>
                 {songs?.map((song) => (
                     <div
@@ -36,9 +83,11 @@ export default async function Home() {
                         }}
                     >
                         <h2 style={{ margin: "0 0 8px" }}>{song.title}</h2>
+
                         <p style={{ margin: "0 0 4px" }}>
                             <strong>Artist:</strong> {song.artist}
                         </p>
+
                         <p style={{ margin: 0 }}>
                             <strong>Year:</strong> {song.year}
                         </p>

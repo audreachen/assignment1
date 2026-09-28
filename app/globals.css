@@ -24,3 +24,608 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ----- Vinyl collection ----- */
+
+.collection-page {
+  min-height: 100vh;
+  padding: 32px 6vw 80px;
+  background: #f1eadc;
+  color: #201d19;
+}
+
+.collection-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto 80px;
+}
+
+.collection-nav a {
+  color: inherit;
+  text-decoration: none;
+  font-size: 14px;
+  border-bottom: 1px solid transparent;
+}
+
+.collection-nav a:hover {
+  border-bottom-color: currentColor;
+}
+
+.collection-header {
+  max-width: 1200px;
+  margin: 0 auto 70px;
+}
+
+.eyebrow {
+  margin-bottom: 12px;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+}
+
+.collection-header h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(52px, 9vw, 110px);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+}
+
+.collection-intro {
+  max-width: 470px;
+  margin-top: 28px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 80px 60px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.record {
+  min-width: 0;
+}
+
+.record-visual {
+  position: relative;
+  width: 85%;
+  aspect-ratio: 1;
+  margin-bottom: 24px;
+}
+
+.record-sleeve {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #b94c35;
+  box-shadow: 0 20px 45px rgba(32, 29, 25, 0.16);
+  transition: transform 300ms ease;
+}
+
+.record:nth-child(2n) .record-sleeve {
+  background: #315c56;
+}
+
+.record:nth-child(3n) .record-sleeve {
+  background: #d19a3e;
+}
+
+.record:nth-child(4n) .record-sleeve {
+  background: #5a506b;
+}
+
+.sleeve-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 28px;
+  color: #fff8eb;
+}
+
+.sleeve-year {
+  align-self: flex-end;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+}
+
+.sleeve-content h2 {
+  max-width: 90%;
+  margin: 0 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 400;
+  line-height: 0.95;
+}
+
+.sleeve-content p {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vinyl {
+  position: absolute;
+  z-index: 1;
+  top: 5%;
+  left: 25%;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background:
+          repeating-radial-gradient(
+                  circle,
+                  #171717 0,
+                  #171717 2px,
+                  #222 3px,
+                  #171717 4px
+          );
+  box-shadow: 8px 18px 35px rgba(0, 0, 0, 0.25);
+  transition: transform 400ms ease;
+}
+
+.vinyl-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30%;
+  height: 30%;
+  transform: translate(-50%, -50%);
+  border: 5px solid #171717;
+  border-radius: 50%;
+  background: #e4c365;
+}
+
+.vinyl-label::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #171717;
+}
+
+.record:hover .vinyl {
+  transform: translateX(18%);
+}
+
+.record:hover .record-sleeve {
+  transform: translateX(-2%);
+}
+
+.record-details h2 {
+  margin: 0 0 5px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 400;
+}
+
+.record-details p {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+@media (max-width: 700px) {
+  .collection-page {
+    padding: 24px 24px 60px;
+  }
+
+  .collection-nav {
+    margin-bottom: 60px;
+  }
+
+  .record-grid {
+    grid-template-columns: 1fr;
+    gap: 65px;
+  }
+
+  .record-visual {
+    width: 82%;
+  }
+}
+
+/* ==============================
+   SUITCASE RECORD PLAYER
+   ============================== */
+
+.record-player {
+  width: min(760px, 92vw);
+  margin: 50px auto;
+  perspective: 1200px;
+}
+
+/* ----- Open red lid ----- */
+
+.player-lid {
+  position: relative;
+  z-index: 1;
+  min-height: 330px;
+  padding: 18px;
+  border: 12px solid #24211f;
+  border-bottom-width: 8px;
+  border-radius: 22px 22px 8px 8px;
+  background: #252220;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.lid-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 290px;
+  padding: 35px;
+  border: 3px solid #8d211b;
+  border-radius: 8px;
+  background:
+          radial-gradient(
+                  circle at center,
+                  #d83a2e 0%,
+                  #bd2c23 55%,
+                  #8f1d18 100%
+          );
+  color: #171311;
+  text-align: center;
+  box-shadow: inset 0 0 30px rgba(50, 0, 0, 0.35);
+}
+
+.album-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+}
+
+.lid-content h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(48px, 9vw, 80px);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.now-playing {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 32px;
+}
+
+.now-playing span {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.now-playing strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+/* ----- Lower suitcase ----- */
+
+.player-base {
+  position: relative;
+  z-index: 2;
+  min-height: 400px;
+  margin-top: -4px;
+  padding: 32px 38px 25px;
+  border: 12px solid #24211f;
+  border-radius: 8px 8px 22px 22px;
+  background: #332d29;
+  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.35);
+}
+
+.turntable {
+  position: relative;
+  min-height: 300px;
+}
+
+/* ----- Platter and record ----- */
+
+.platter {
+  position: absolute;
+  top: 5px;
+  left: 30px;
+  width: 290px;
+  height: 290px;
+  border-radius: 50%;
+  background: #171717;
+  box-shadow:
+          0 0 0 8px #211e1c,
+          0 10px 18px rgba(0, 0, 0, 0.5);
+}
+
+.record-disc {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background:
+          repeating-radial-gradient(
+                  circle,
+                  #151515 0,
+                  #151515 2px,
+                  #252525 3px,
+                  #151515 5px
+          );
+  animation: record-spin 7s linear infinite;
+}
+
+.record-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: 105px;
+  height: 105px;
+  transform: translate(-50%, -50%);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e7b835;
+  color: #292017;
+  text-align: center;
+}
+
+.record-label span {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.record-label small {
+  width: 75px;
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spindle-hole {
+  width: 8px;
+  height: 8px;
+  margin: 5px;
+  border-radius: 50%;
+  background: #171717;
+}
+
+@keyframes record-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ----- Tonearm ----- */
+
+.tonearm {
+  position: absolute;
+  top: 30px;
+  right: 80px;
+  width: 190px;
+  height: 245px;
+}
+
+.tonearm-pivot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 62px;
+  height: 62px;
+  border: 8px solid #181615;
+  border-radius: 50%;
+  background: #77716b;
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
+}
+
+.tonearm-arm {
+  position: absolute;
+  top: 43px;
+  right: 38px;
+  width: 13px;
+  height: 185px;
+  transform: rotate(24deg);
+  transform-origin: top center;
+  border-radius: 10px;
+  background: linear-gradient(
+          90deg,
+          #595959,
+          #b8b8b8,
+          #555
+  );
+}
+
+.needle {
+  position: absolute;
+  right: 83px;
+  bottom: 6px;
+  width: 35px;
+  height: 18px;
+  transform: rotate(24deg);
+  border-radius: 3px;
+  background: #171717;
+}
+
+/* ----- Controls ----- */
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 18px;
+  padding-top: 20px;
+  border-top: 1px solid #514943;
+}
+
+.player-controls button {
+  padding: 9px 13px;
+  border: 1px solid #aaa096;
+  border-radius: 4px;
+  background: transparent;
+  color: #f2e9dc;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.player-controls button:hover {
+  background: #f2e9dc;
+  color: #282320;
+}
+
+.liner-button {
+  font-family: Georgia, "Times New Roman", serif !important;
+}
+
+/* ----- Smaller screens ----- */
+
+@media (max-width: 650px) {
+  .player-lid {
+    min-height: 260px;
+  }
+
+  .lid-content {
+    min-height: 220px;
+  }
+
+  .player-base {
+    min-height: 330px;
+    padding: 25px 20px;
+  }
+
+  .turntable {
+    min-height: 240px;
+  }
+
+  .platter {
+    left: 5px;
+    width: 225px;
+    height: 225px;
+  }
+
+  .tonearm {
+    top: 20px;
+    right: 5px;
+    transform: scale(0.8);
+    transform-origin: top right;
+  }
+
+  .player-controls {
+    gap: 7px;
+  }
+
+  .player-controls button {
+    padding: 8px;
+    font-size: 9px;
+  }
+}
+
+/* ----- Liner notes sheet ----- */
+
+.record-player {
+  position: relative;
+}
+
+.liner-notes {
+  position: absolute;
+  z-index: 0;
+  top: 120px;
+  right: -190px;
+
+  width: 300px;
+  min-height: 390px;
+  padding: 35px;
+
+  background: #eee2c9;
+  color: #29231d;
+
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+
+  transform: translateX(-170px) rotate(2deg);
+  opacity: 0;
+
+  transition:
+          transform 500ms ease,
+          opacity 300ms ease;
+}
+
+.liner-notes.open {
+  transform: translateX(110px) rotate(2deg);
+  opacity: 1;
+}
+
+.notes-album {
+  margin: 0 0 35px;
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+}
+
+.liner-notes h3 {
+  margin: 0;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 400;
+}
+
+.notes-artist {
+  margin-top: 8px;
+
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notes-divider {
+  width: 100%;
+  height: 1px;
+
+  margin: 25px 0;
+
+  background: #9e927d;
+}
+
+.notes-text {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+@media (max-width: 1100px) {
+  .liner-notes {
+    top: 180px;
+    right: 20px;
+    width: 280px;
+
+    transform: translateY(100px) rotate(2deg);
+  }
+
+  .liner-notes.open {
+    z-index: 3;
+    transform: translateY(0) rotate(2deg);
+  }
+}
