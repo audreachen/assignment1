@@ -1,6 +1,7 @@
 "use client";
-
+import GenerateSceneForm from "./GenerateSceneForm";
 import { useState } from "react";
+import VoteButtons from "./VoteButtons";
 
 type Song = {
     id: number;
@@ -9,11 +10,26 @@ type Song = {
     year: number;
 };
 
-type RecordPlayerProps = {
-    songs: Song[];
+type Generation = {
+    id: number;
+    user_id: string;
+    song_id: number;
+    prompt: string;
+    image_url: string;
+    created_at: string;
 };
 
-export default function RecordPlayer({ songs }: RecordPlayerProps) {
+type RecordPlayerProps = {
+    songs: Song[];
+    userId: string;
+    generations: Generation[];
+};
+
+export default function RecordPlayer({
+                                         songs,
+                                         userId,
+                                         generations,
+                                     }: RecordPlayerProps)  {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [showLinerNotes, setShowLinerNotes] = useState(false);
     if (songs.length === 0) {
@@ -21,6 +37,9 @@ export default function RecordPlayer({ songs }: RecordPlayerProps) {
     }
 
     const currentSong = songs[currentIndex];
+    const currentGeneration = generations.find(
+        (generation) => generation.song_id === currentSong.id
+    );
 
     const showPrevious = () => {
         setShowLinerNotes(false);
@@ -35,66 +54,99 @@ export default function RecordPlayer({ songs }: RecordPlayerProps) {
     return (
         <section className="record-player">
             {/* Open lid */}
-            <div className={`liner-notes ${showLinerNotes ? "open" : ""}`}>
-                <p className="notes-album">JUBILEE</p>
-
-                <h3>{currentSong.title}</h3>
-
-                <p className="notes-artist">Japanese Breakfast · 2021</p>
-
-                <div className="notes-divider" />
-
-                <p className="notes-text">
-                    Liner notes for {currentSong.title} will live here.
-                </p>
-            </div>
-            <div className="player-lid">
-                <div className="lid-content">
-                    <p className="album-label">JAPANESE BREAKFAST</p>
-
-                    <h2>JUBILEE</h2>
-
-                    <div className="now-playing">
-                        <span>NOW PLAYING</span>
-                        <strong>{currentSong.title}</strong>
-                        <span>{currentSong.year}</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Bottom half of suitcase */}
-            <div className="player-base">
-                <div className="turntable">
-                    <div className="platter">
-                        <div className="record-disc">
-                            <div className="record-label">
-                                <span>JUBILEE</span>
-                                <div className="spindle-hole" />
-                                <small>{currentSong.title}</small>
-                            </div>
+            {/* Minecraft-inspired jukebox */}
+            <div className="jukebox">
+                <div className="jukebox-top">
+                    <div className="jukebox-slot">
+                        <div className="music-disc">
+                            <div className="music-disc-center" />
                         </div>
                     </div>
+                </div>
 
-                    <div className="tonearm">
-                        <div className="tonearm-pivot" />
-                        <div className="tonearm-arm" />
-                        <div className="needle" />
+                <div className="jukebox-front">
+                    <div className="jukebox-speaker">
+                        <div className="speaker-pattern" />
+                    </div>
+
+                    <div className="jukebox-song">
+                        <span>NOW PLAYING</span>
+                        <strong>{currentSong.title}</strong>
+                        <small>
+                            {currentSong.artist} · {currentSong.year}
+                        </small>
                     </div>
                 </div>
 
-                <div className="player-controls">
-                    <button onClick={showPrevious}>← Previous</button>
-
-                    <button
-                        className="liner-button"
-                        onClick={() => setShowLinerNotes(!showLinerNotes)}
-                    >
-                        {showLinerNotes ? "Close Notes" : "Liner Notes"}
+                <div className="jukebox-controls">
+                    <button onClick={showPrevious}>
+                        ◀ PREV
                     </button>
 
-                    <button onClick={showNext}>Next →</button>
+                    <button
+                        onClick={() => setShowLinerNotes(!showLinerNotes)}
+                    >
+                        {showLinerNotes ? "CLOSE" : "INFO"}
+                    </button>
+
+                    <button onClick={showNext}>
+                        NEXT ▶
+                    </button>
                 </div>
             </div>
+
+            {showLinerNotes && (
+                <div className="jukebox-info">
+                    <span>JUKEBOX</span>
+                    <h3>{currentSong.title}</h3>
+                    <p>{currentSong.artist}</p>
+                    <p>Released {currentSong.year}</p>
+                </div>
+            )}
+            <GenerateSceneForm
+                userId={userId}
+                songId={currentSong.id}
+                songTitle={currentSong.title}
+            />
+            {currentGeneration && (
+                <section className="community-painting">
+                    <div className="community-heading">
+                        <span>✦ COMMUNITY GALLERY ✦</span>
+                        <h3>Listener Painting</h3>
+                        <p>A scene imagined while listening to {currentSong.title}</p>
+                    </div>
+
+                    <div className="gallery-frame">
+                        {currentGeneration.image_url === "test-image" ? (
+                            <div className="painting-placeholder">
+                                <span className="placeholder-sun" />
+                                <span className="placeholder-hill" />
+                                <span className="placeholder-caption">
+            PAINTING NOT YET GENERATED
+          </span>
+                            </div>
+                        ) : (
+                            <img
+                                src={currentGeneration.image_url}
+                                alt={`Listener painting inspired by ${currentSong.title}`}
+                            />
+                        )}
+                    </div>
+
+                    <p className="painting-description">
+                        {currentGeneration.prompt}
+                    </p>
+
+                    <div className="gallery-votes">
+                        <VoteButtons
+                            userId={userId}
+                            generationId={currentGeneration.id}
+                        />
+                    </div>
+                </section>
+            )}
         </section>
     );
 }
+
+

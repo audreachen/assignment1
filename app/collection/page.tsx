@@ -19,6 +19,15 @@ export default async function CollectionPage() {
         .from("Songs")
         .select("*");
 
+    const { data: generations, error: generationsError } = await supabase
+        .from("generations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+    if (generationsError) {
+        console.error("Error loading generations:", generationsError.message);
+    }
+
     if (error) {
         return (
             <main>
@@ -28,25 +37,38 @@ export default async function CollectionPage() {
     }
 
     return (
-        <main
-            style={{
-                maxWidth: "900px",
-                margin: "0 auto",
-                padding: "40px 20px",
-                fontFamily: "Arial, sans-serif",
-            }}
-        >
-            <nav>
-                <Link href="/">Home</Link>
-                {" | "}
-                <Link href="/profile">Profile</Link>
+        <main className="collection-page">
+            <nav className="game-nav">
+                <Link href="/" className="game-logo">
+                    ♪ JUKECRAFT
+                </Link>
+
+                <div className="game-nav-links">
+                    <Link href="/">SONGS</Link>
+                    <Link href="/profile">PROFILE</Link>
+                </div>
             </nav>
 
-            <h1>My Collection</h1>
+            <header className="collection-header">
+                <span>✦ YOUR MUSIC WORLD ✦</span>
 
-            <p>Number of songs: {songs?.length ?? 0}</p>
+                <h1>My Collection</h1>
 
-            <RecordPlayer songs={songs ?? []} />
+                <p>
+                    Insert a music disc, imagine the world behind the song,
+                    and turn it into a painting.
+                </p>
+
+                <div className="collection-count">
+                    {songs?.length ?? 0} MUSIC DISCS
+                </div>
+            </header>
+
+            <RecordPlayer
+                songs={songs ?? []}
+                userId={user.id}
+                generations={generations ?? []}
+            />
         </main>
     );
 }

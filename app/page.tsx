@@ -41,59 +41,75 @@ export default async function Home() {
     }
 
     return (
-        <main
-            style={{
-                maxWidth: "800px",
-                margin: "0 auto",
-                padding: "40px 20px",
-                fontFamily: "Arial, sans-serif",
-            }}
-        >
-            <h1>My Songs</h1>
+        <main className="songs-page">
+            <nav className="game-nav">
+                <Link href="/" className="game-logo">
+                    ♪ JUKECRAFT
+                </Link>
 
-            {user && (
-                <div>
-                    <p>
-                        <Link href="/profile">Profile</Link>
-                    </p>
+                {user && (
+                    <div className="game-nav-links">
+                        <Link href="/collection">JUKEBOX</Link>
+                        <Link href="/profile">PROFILE</Link>
+                    </div>
+                )}
+            </nav>
 
-                    <p>
-                        <Link href="/collection">My Collection</Link>
-                    </p>
+            <header className="songs-header">
+                <span>✦ MUSIC INVENTORY ✦</span>
+                <h1>My Songs</h1>
+                <p>
+                    Choose a music disc from the collection and take it
+                    to the jukebox.
+                </p>
+            </header>
+
+            {/* Logged out: offer Google login */}
+            {!user && (
+                <div className="songs-login">
+                    <p>Sign in to access your jukebox and create paintings.</p>
+                    <GoogleSignInButton />
                 </div>
             )}
 
-            {/* Logged out: offer Google login */}
-            {!user && <GoogleSignInButton />}
-
-            {/* Logged in, but profile isn't complete: ask for names */}
+            {/* Logged in, but profile isn't complete */}
             {user && (!profile?.first_name || !profile?.last_name) && (
                 <CompleteProfileForm userId={user.id} />
             )}
 
-            {/* Assignment #2 song list */}
-            <div style={{ display: "grid", gap: "16px" }}>
-                {songs?.map((song) => (
-                    <div
-                        key={song.id}
-                        style={{
-                            border: "1px solid #ddd",
-                            borderRadius: "8px",
-                            padding: "20px",
-                        }}
-                    >
-                        <h2 style={{ margin: "0 0 8px" }}>{song.title}</h2>
+            <section className="disc-inventory">
+                {songs?.map((song, index) => (
+                    <div className="disc-card" key={song.id}>
+                        <div className="inventory-slot">
+                            <div className="inventory-disc">
+                                <div className="inventory-disc-label">
+                                    {index + 1}
+                                </div>
+                            </div>
+                        </div>
 
-                        <p style={{ margin: "0 0 4px" }}>
-                            <strong>Artist:</strong> {song.artist}
-                        </p>
+                        <div className="disc-info">
+                        <span className="disc-number">
+                            MUSIC DISC #{String(index + 1).padStart(2, "0")}
+                        </span>
 
-                        <p style={{ margin: 0 }}>
-                            <strong>Year:</strong> {song.year}
-                        </p>
+                            <h2>{song.title}</h2>
+
+                            <p>{song.artist}</p>
+
+                            <small>{song.year}</small>
+                        </div>
                     </div>
                 ))}
-            </div>
+            </section>
+
+            {user && (
+                <div className="inventory-action">
+                    <Link href="/collection">
+                        OPEN JUKEBOX →
+                    </Link>
+                </div>
+            )}
         </main>
     );
 }
