@@ -21,6 +21,10 @@ export default function StickerBook() {
   const [ready,setReady]=useState(false);
   const [account,setAccount]=useState<string|null>(null);
   const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [displayName,setDisplayName]=useState("");
+  const [authMode,setAuthMode]=useState<"login"|"signup">("login");
+  const [authBusy,setAuthBusy]=useState(false);
   const [cloudReady,setCloudReady]=useState(false);
 
   const [cloudMessage,setCloudMessage]=useState("");
@@ -40,10 +44,27 @@ export default function StickerBook() {
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{setAccount(session?.user.id??null);setCloudReady(false);});
     return()=>subscription.unsubscribe();
   },[]);
-  async function emailSignIn(){
-    if(!supabase)return;
-    const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
-    setCloudMessage(error?error.message:"Check your email for a sign-in link ✉");
+  async function passwordAuth(){
+    if(!supabase||authBusy)return;
+    setAuthBusy(true);setCloudMessage("");
+    try{
+      if(authMode==="signup"){
+        const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name:displayName.trim()}}});
+        if(error){setCloudMessage(error.message);return;}
+        if(data.session&&data.user){
+          const {error:profileError}=await supabase.from("journal_profiles").upsert({user_id:data.user.id,display_name:displayName.trim()});
+          setCloudMessage(profileError?"Account created; username could not be saved: "+profileError.message:"Welcome to your scrapbook! ✿");
+        }else setCloudMessage("Account created! Check your email for a confirmation message if required, then sign in with your password.");
+      }else{
+        const {error}=await supabase.auth.signInWithPassword({email,password});
+        setCloudMessage(error?error.message:"Welcome back! ✿");
+      }
+    }finally{setAuthBusy(false);}
+  }
+  async function saveDisplayName(){
+    if(!supabase||!account||!displayName.trim())return;
+    const {error}=await supabase.from("journal_profiles").upsert({user_id:account,display_name:displayName.trim()});
+    setCloudMessage(error?error.message:"Username saved ✓");
   }
   async function uploadAvatar(file?:File){
     if(!file||!supabase||!account)return;
@@ -63,10 +84,11 @@ export default function StickerBook() {
     async function loadCloud(){
       const [{data:items,error},{data:profile}]=await Promise.all([
         supabase!.from("journal_items").select("*").eq("user_id",account!),
-        supabase!.from("journal_profiles").select("avatar_path").eq("user_id",account!).maybeSingle()
+        supabase!.from("journal_profiles").select("avatar_path,display_name").eq("user_id",account!).maybeSingle()
       ]);
       if(cancelled)return;
       if(error){setCloudMessage("Could not load your journal: "+error.message);return;}
+      if(profile?.display_name&&!cancelled)setDisplayName(profile.display_name);
       if(profile?.avatar_path){const {data}=await supabase!.storage.from("profile-pictures").createSignedUrl(profile.avatar_path,3600);if(!cancelled)setAvatarUrl(data?.signedUrl??"");}
       if(items?.length){
         const restored=await Promise.all(items.map(async item=>{
@@ -153,7 +175,7 @@ export default function StickerBook() {
       <section className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#e1d8c7] bg-white p-4">
         {avatarUrl?<img src={avatarUrl} alt="Your avatar" className="h-14 w-14 rounded-full object-cover"/>:<span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fff1a9] text-2xl">✿</span>}
         <div className="flex-1"><p className="font-black">Your music journal</p><p className="text-xs text-[#756b60]">{account?"Signed in — private cloud storage":"Sign in to save photos and stickers across devices"}</p></div>
-        {account?<><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{void uploadAvatar(e.target.files?.[0]);e.target.value="";}}/><button className="rounded-xl bg-[#fff1a9] px-3 py-2 text-sm font-bold" onClick={()=>avatarInput.current?.click()}>Upload profile picture</button><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void supabase?.auth.signOut()}>Sign out</button></>:supabase?<form className="flex flex-wrap gap-2" onSubmit={e=>{e.preventDefault();void emailSignIn();}}><input type="email" required placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} className="rounded-lg border p-2 text-sm"/><button className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white">Email sign-in link</button></form>:<p className="text-xs">Cloud configuration pending</p>}
+        {account?<><div className="flex flex-wrap items-center gap-2"><input aria-label="Scrapbook username" value={displayName} onChange={e=>setDisplayName(e.target.value)} maxLength={40} placeholder="Your scrapbook username" className="rounded-lg border p-2 text-sm"/><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void saveDisplayName()}>Save username</button></div><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{void uploadAvatar(e.target.files?.[0]);e.target.value="";}}/><button className="rounded-xl bg-[#fff1a9] px-3 py-2 text-sm font-bold" onClick={()=>avatarInput.current?.click()}>Upload profile picture</button><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void supabase?.auth.signOut()}>Sign out</button></>:supabase?<form className="flex flex-wrap items-center gap-2" onSubmit={e=>{e.preventDefault();void passwordAuth();}}><input type="email" autoComplete="email" required placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} className="rounded-lg border p-2 text-sm"/><input type="password" autoComplete={authMode==="signup"?"new-password":"current-password"} minLength={6} required placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="rounded-lg border p-2 text-sm"/>{authMode==="signup"&&<input required maxLength={40} placeholder="Choose a username" value={displayName} onChange={e=>setDisplayName(e.target.value)} className="rounded-lg border p-2 text-sm"/>}<button disabled={authBusy} className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">{authBusy?"Please wait…":authMode==="signup"?"Create account":"Sign in"}</button><button type="button" className="rounded-lg border px-3 py-2 text-sm font-bold" onClick={()=>{setAuthMode(authMode==="signup"?"login":"signup");setCloudMessage("");}}>{authMode==="signup"?"Already have an account?":"Create an account"}</button></form>:<p className="text-xs">Cloud configuration pending</p>}
         {cloudMessage&&<p role="status" className="w-full text-xs text-[#1355c8]">{cloudMessage}</p>}
       </section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">{account?"Your layout syncs to Supabase ✳":"Your layout saves in this browser ✳"}</span></div>
