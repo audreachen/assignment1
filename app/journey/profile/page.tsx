@@ -19,6 +19,12 @@ const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
 export default function StickerBook() {
   const [stickers,setStickers]=useState<Sticker[]>(starter);
   const [ready,setReady]=useState(false);
+  const [account,setAccount]=useState<string|null>(null);
+  const [email,setEmail]=useState("");
+  const [cloudReady,setCloudReady]=useState(false);
+  const [cloudMessage,setCloudMessage]=useState("");
+  const [avatarUrl,setAvatarUrl]=useState("");
+  const avatarInput=useRef<HTMLInputElement>(null);
   const [active,setActive]=useState<string|null>(null);
   const [page,setPage]=useState(1);
   const board=useRef<HTMLDivElement>(null);
@@ -27,6 +33,29 @@ export default function StickerBook() {
   const drag=useRef<{id:string;offsetX:number;offsetY:number}|null>(null);
   useEffect(()=>{try {const raw=localStorage.getItem(storageKey);if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed.stickers)){const seen=new Set<string>();setStickers(parsed.stickers.filter((s:Sticker)=>{if(s.kind==="album"){const key=s.label.toLowerCase().trim();if(seen.has(key))return false;seen.add(key);}return true;}));}if(parsed.page===1||parsed.page===2)setPage(parsed.page);}}catch{}setReady(true);},[]);
   useEffect(()=>{if(ready){try{localStorage.setItem(storageKey,JSON.stringify({stickers,page}));}catch{setPhotoError("Browser storage is full. Remove a photo to save new changes.");}}},[stickers,page,ready]);
+  useEffect(()=>{
+    if(!supabase)return;
+    void supabase.auth.getUser().then(({data})=>setAccount(data.user?.id??null));
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{setAccount(session?.user.id??null);setCloudReady(false);});
+    return()=>subscription.unsubscribe();
+  },[]);
+  async function emailSignIn(){
+    if(!supabase)return;
+    const {error}=await supabase.auth.signInWithOtp({email,emailRedirectTo:window.location.href});
+    setCloudMessage(error?error.message:"Check your email for a sign-in link ✉");
+  }
+  async function uploadAvatar(file?:File){
+    if(!file||!supabase||!account)return;
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024){setCloudMessage("Choose a JPG, PNG, or WebP image under 5 MB.");return;}
+    const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";
+    const path=account+"/avatar-"+Date.now()+"."+ext;
+    const {error}=await supabase.storage.from("profile-pictures").upload(path,file,{contentType:file.type});
+    if(error){setCloudMessage(error.message);return;}
+    const {error:profileError}=await supabase.from("journal_profiles").upsert({user_id:account,avatar_path:path});
+    if(profileError){setCloudMessage(profileError.message);return;}
+    const {data}=await supabase.storage.from("profile-pictures").createSignedUrl(path,3600);
+    setAvatarUrl(data?.signedUrl??"");setCloudMessage("Profile picture saved ✓");
+  }
   const shown=stickers.filter(s=>(s.page??(s.id.startsWith("page2-")?2:1))===page);
   const hasMelodrama=stickers.some(s=>s.kind==="album"&&s.label.toLowerCase().trim()==="melodrama");
   function startDrag(e:React.PointerEvent<HTMLButtonElement>,id:string){
@@ -73,6 +102,12 @@ export default function StickerBook() {
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-6 md:px-8">
       <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e0d9c9] pb-5"><Link href="/journey" className="rotate-[-3deg] rounded-lg border-2 border-[#1355c8] bg-white px-3 py-1 text-xl font-black text-[#1355c8] shadow-[3px_3px_0_#ffe54f]">album journeys ✳</Link><Link href="/journey" className="text-sm font-black text-[#1355c8] hover:underline">← Back to the Crate</Link></nav>
       <header className="py-8"><p className="text-xs font-black uppercase tracking-[.24em] text-[#1355c8]">THE COLLECTION / VOL. 01</p><h1 className="mt-2 text-4xl font-black tracking-tight md:text-6xl">My Sticker Book <span className="inline-block rotate-[-12deg]">✿</span></h1><p className="mt-3 max-w-xl text-[#6a6258]">A messy little home for the albums that follow you around. Drag, overlap, rotate, and make the pages yours.</p></header>
+      <section className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#e1d8c7] bg-white p-4">
+        {avatarUrl?<img src={avatarUrl} alt="Your avatar" className="h-14 w-14 rounded-full object-cover"/>:<span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fff1a9] text-2xl">✿</span>}
+        <div className="flex-1"><p className="font-black">Your music journal</p><p className="text-xs text-[#756b60]">{account?"Signed in — private cloud storage":"Sign in to save photos and stickers across devices"}</p></div>
+        {account?<><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{void uploadAvatar(e.target.files?.[0]);e.target.value="";}}/><button className="rounded-xl bg-[#fff1a9] px-3 py-2 text-sm font-bold" onClick={()=>avatarInput.current?.click()}>Upload profile picture</button><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void supabase?.auth.signOut()}>Sign out</button></>:supabase?<form className="flex flex-wrap gap-2" onSubmit={e=>{e.preventDefault();void emailSignIn();}}><input type="email" required placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} className="rounded-lg border p-2 text-sm"/><button className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white">Email sign-in link</button></form>:<p className="text-xs">Cloud configuration pending</p>}
+        {cloudMessage&&<p role="status" className="w-full text-xs text-[#1355c8]">{cloudMessage}</p>}
+      </section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">Your layout saves in this browser ✳</span></div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_245px]">
         <div ref={board} className="relative min-h-[650px] overflow-hidden rounded-[5px_19px_18px_6px] border border-[#d4c5a6] bg-[#f4e6c7] shadow-[8px_12px_0_#e0d7c4,12px_16px_25px_#a89d8640] md:min-h-[730px]" style={{backgroundImage:"repeating-linear-gradient(0deg,transparent 0px,transparent 29px,#9ca7a128 30px,#9ca7a128 31px),linear-gradient(90deg,#e9d7b4 0px,#e9d7b4 34px,#f9efda 35px,#f9efda 100%)"}}>
