@@ -27,48 +27,41 @@ export default function JourneyPage() {
   const [duration, setDuration] = useState("Any length");
   const [selected, setSelected] = useState<Album | null>(null);
   const filtered = useMemo(() => albums.filter(a => (mood === "All" || a.mood === mood) && (duration === "Any length" || (duration === "Under 45 min" ? a.minutes < 45 : a.minutes >= 45))), [mood, duration]);
-  return <main className="min-h-screen bg-[#f7f3e9] text-[#292d28]">
-    <div className="mx-auto max-w-6xl px-5 pb-24 pt-6 md:px-10">
-      <nav className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#292d28] pb-5">
-        <Link href="/journey" className="flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl"><span className="text-3xl">◉</span> album journeys<span className="text-[#d8664a]">✳</span></Link>
+  return <main className="min-h-screen bg-white text-[#151515]">
+    <div className="mx-auto max-w-7xl px-5 pb-24 pt-6 md:px-10">
+      <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-5">
+        <Link href="/journey" className="flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl"><span className="rotate-[-7deg] rounded-xl border-2 border-[#1355c8] bg-white px-3 py-1 text-[#1355c8] shadow-[3px_3px_0_#ffe54f]">album journeys ✳</span></Link>
         <div className="flex items-center gap-5 text-sm font-semibold"><a href="#discover" className="hover:underline">Discover</a><a href="#how-it-works" className="hover:underline">The idea</a><Link href="/" className="text-[#8b8377] hover:underline">JUKECRAFT ↗</Link></div>
       </nav>
 
-      <section className="grid gap-6 py-10 md:grid-cols-[1.4fr_0.6fr] md:items-end">
-        <div><p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#bd634a]">A different kind of music discovery ↗</p><h1 className="max-w-2xl text-4xl font-black leading-[1.06] tracking-tight md:text-6xl">Find your next<br/><span className="italic text-[#d8664a]">album adventure.</span></h1><p className="mt-5 max-w-xl text-base leading-relaxed text-[#655f56]">Good albums take you places. Pick one for your next run, wander through its highs and lows, and listen all the way through.</p></div>
-        <div className="rotate-[-3deg] rounded-2xl border-2 border-[#292d28] bg-[#e8e0cc] p-5 shadow-[5px_5px_0_#292d28]"><p className="text-sm font-bold">✳ A little note</p><p className="mt-2 text-sm leading-relaxed">These squiggly lines? Think Strava elevation maps, but for the feeling of an album.</p><p className="mt-3 text-xs text-[#716b61]">For now, the curves are illustrative — not audio analysis.</p></div>
+      <section className="grid gap-8 py-10 md:grid-cols-[1.5fr_0.5fr] md:items-center">
+        <div><p className="mb-3 text-sm font-bold tracking-wide text-[#1559c8]">♪ albums for the long way around</p><h1 className="max-w-3xl text-5xl font-black leading-[1.02] tracking-tight md:text-7xl">What are we<br/>listening to<span className="text-[#f4d629]">? ✳</span></h1><p className="mt-5 max-w-xl text-base text-[#555]">Albums for the road, the trail, or wherever your feet take you.</p></div>
+        <a href="#discover" className="group relative mx-auto flex h-48 w-48 rotate-[9deg] flex-col items-center justify-center rounded-[42%_55%_45%_55%] border-[8px] border-white bg-[#ed3449] p-4 text-center text-white shadow-[0_0_0_2px_#e4e4e4,5px_7px_0_#e7e7e7] transition hover:rotate-0"><span className="absolute -top-5 text-4xl">🍓</span><span className="text-2xl font-black italic leading-tight">find my next<br/>run album ↗</span><span className="mt-2 text-xs font-bold">TIME · MOOD · ENERGY</span></a>
       </section>
-
       <section id="discover" className="scroll-mt-6">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#bd634a]">The record crate / 001</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Pick a path ↓</h2></div><p className="text-sm text-[#716b61]">{filtered.length} albums to explore</p></div>
-        <div className="mb-7 flex flex-wrap items-center gap-3 rounded-xl border border-[#d9d0c0] bg-[#fffcf5] p-3">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1559c8]">STICKER SHEET / 001</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Pick a sticker ↓</h2></div><p className="text-sm text-[#666]">{filtered.length} albums to explore</p></div>
+        <div className="mb-7 flex flex-wrap items-center gap-3 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3">
           <span className="mr-1 text-xs font-bold uppercase tracking-wider">I'm feeling</span>
-          {["All","Bright","Electric","Reflective"].map(v=><button key={v} type="button" onClick={()=>setMood(v)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${mood===v?"border-[#292d28] bg-[#292d28] text-white":"border-[#d9d0c0] bg-white hover:border-[#292d28]"}`}>{v}</button>)}
+          {["All","Bright","Electric","Reflective"].map(v=><button key={v} type="button" onClick={()=>setMood(v)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${mood===v?"border-[#292d28] bg-[#292d28] text-white":"border-[#dedede] bg-white hover:border-[#292d28]"}`}>{v}</button>)}
           <select aria-label="Album duration" value={duration} onChange={e=>setDuration(e.target.value)} className="ml-auto rounded-full border border-[#d9d0c0] bg-white px-4 py-2 text-sm font-semibold"><option>Any length</option><option>Under 45 min</option><option>45+ min</option></select>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((album,i)=><button type="button" key={album.title} onClick={()=>setSelected(album)} className="group flex flex-col overflow-hidden rounded-2xl border-2 border-[#292d28] bg-[#fffcf5] text-left shadow-[4px_4px_0_#292d28] transition hover:-translate-y-1 hover:shadow-[6px_7px_0_#292d28]">
-            <div className={`relative flex aspect-[1.35] items-center justify-center overflow-hidden bg-gradient-to-br ${album.colors}`}>
-              <div className="absolute inset-5 rounded-full border-[16px] border-white/20 opacity-70" />
-              <div className="absolute inset-12 rounded-full border-[2px] border-white/30" />
-              <span className="relative select-none font-serif text-[110px] italic leading-none text-white/90 drop-shadow-lg">{album.initials}</span>
-              <span className="absolute left-4 top-4 rounded-full bg-[#fffcf5] px-3 py-1 text-xs font-bold text-[#292d28]">SIDE A / {String(i+1).padStart(2,"0")}</span>
-              <span className="absolute bottom-4 right-4 rounded-full bg-[#292d28] px-3 py-1 text-xs font-bold text-white">{album.minutes} min ↗</span>
+          {filtered.map((album,i)=><button type="button" key={album.title} onClick={()=>setSelected(album)} className="group flex flex-col rounded-2xl bg-white p-3 text-left transition hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1559c8]">
+            <div className="relative flex aspect-[1.18] items-center justify-center">
+              <div className={`relative flex h-[88%] w-[91%] rotate-[-3deg] flex-col items-center justify-center overflow-hidden rounded-[48%_52%_46%_54%/54%_43%_57%_46%] border-[7px] border-white bg-gradient-to-br shadow-[0_0_0_2px_#e5e5e5,3px_6px_0_#ececec] transition duration-200 group-hover:rotate-[2deg] ${album.colors}`}>
+                <div className="absolute inset-[9%] rounded-[50%] border-2 border-white/60" />
+                <div className="absolute inset-[16%] rounded-[50%] border border-white/40" />
+                <span className="relative z-10 max-w-[85%] text-center text-[clamp(0.9rem,2vw,1.4rem)] font-black uppercase tracking-wider text-white drop-shadow-md">{album.artist}</span>
+                <span className="relative z-10 mt-2 max-w-[85%] text-center font-serif text-[clamp(1.8rem,3.3vw,3rem)] font-black italic leading-[0.95] text-white drop-shadow-lg">{album.title}</span>
+                <span className="relative z-10 mt-4 bg-white px-3 py-1 font-mono text-[10px] tracking-[0.25em] text-black">AJ—{String(i+1).padStart(4,"0")} ||||</span>
+              </div>
+              <span className="absolute bottom-5 right-0 rotate-[10deg] rounded-[45%] border-4 border-white bg-[#ffe447] px-3 py-3 text-center text-[11px] font-black uppercase leading-tight text-[#174d8b] shadow-[0_0_0_1px_#ddd]">{album.arc}</span>
             </div>
-            <div className="flex flex-1 flex-col p-5">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#b45f49]">{album.mood} · {album.arc}</p>
-              <h3 className="mt-2 text-2xl font-black tracking-tight">{album.title}</h3><p className="mt-1 text-sm text-[#716b61]">{album.artist}</p>
-              <div className="mt-auto pt-5"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider">Energy map</span><span className="text-xs text-[#81796d]">start → finish</span></div><EnergyMap values={album.energy}/><p className="mt-1 text-right text-sm font-bold text-[#b45f49]">Open journey ↗</p></div>
+            <div className="mt-2 px-2">
+              <div className="flex items-center justify-between gap-2"><span className="font-bold">{album.title}</span><span className="shrink-0 text-xs text-[#555]">{album.minutes} min</span></div>
+              <p className="mt-0.5 text-sm text-[#666]">{album.artist}</p>
+              <EnergyMap values={album.energy} accent={album.mood==="Electric"?"#1674e8":album.mood==="Bright"?"#ed5a95":"#32b783"}/>
+              <div className="flex items-center justify-between gap-2"><span className="rounded-full bg-[#f2f2f2] px-3 py-1 text-xs">{album.mood} · {album.arc}</span><span className="text-xs font-bold text-[#1559c8]">Explore ↗</span></div>
             </div>
           </button>)}
-        </div>
-        {filtered.length===0&&<p className="rounded-xl border border-dashed border-[#a79e8f] p-8 text-center">No albums in this corner of the crate yet. Try another filter!</p>}
-      </section>
-
-      <section id="how-it-works" className="mt-16 grid gap-6 rounded-2xl bg-[#292d28] p-7 text-[#fff8ea] md:grid-cols-[1fr_1.4fr] md:p-10"><div><p className="text-xs font-bold uppercase tracking-widest text-[#e9a080]">More than a playlist</p><h2 className="mt-3 text-3xl font-black">An album is a journey, not a shuffle.</h2></div><div className="flex flex-col justify-center gap-3 text-sm leading-relaxed text-[#ded9cd]"><p>① <strong className="text-white">Discover</strong> a record that fits your time and mood.</p><p>② <strong className="text-white">Listen</strong> from first track to last, on a run or wherever you are.</p><p>③ <strong className="text-white">Reflect</strong> on the emotional arc and eventually save your own listening diary.</p><p className="pt-2 text-xs text-[#b6b2a6]">Prototype: album art is represented by original placeholder designs; maps are illustrative, not measured audio data.</p></div></section>
-    </div>
-
-    {selected&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1e221f]/75 p-4" onClick={()=>setSelected(null)}><div role="dialog" aria-modal="true" aria-label={selected.title+" journey"} onClick={e=>e.stopPropagation()} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border-2 border-[#292d28] bg-[#fffcf5] p-6 shadow-xl md:p-9"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#b45f49]">Inside the sleeve</p><h2 className="mt-2 text-3xl font-black">{selected.title}</h2><p className="text-[#716b61]">{selected.artist} · {selected.minutes} min</p></div><button onClick={()=>setSelected(null)} aria-label="Close album journey" className="rounded-full border border-[#292d28] px-3 py-1 font-bold">✕</button></div><div className="mt-7 rounded-xl bg-[#f0e9dc] p-5"><p className="text-xs font-bold uppercase tracking-widest">The energy map / illustrative</p><EnergyMap values={selected.energy}/><div className="flex justify-between text-xs text-[#716b61]"><span>First track</span><span>Last track</span></div></div><p className="mt-6 text-sm leading-relaxed text-[#655f56]">A {selected.arc.toLowerCase()} through {selected.mood.toLowerCase()} sounds. This is an early visual sketch of the album journey. Track-by-track interpretation and your own run log are coming next.</p><button onClick={()=>setSelected(null)} className="mt-6 rounded-full bg-[#292d28] px-5 py-3 text-sm font-bold text-white">Back to the crate ↗</button></div></div>}
-  </main>;
-}
