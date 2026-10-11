@@ -22,6 +22,7 @@ export default function StickerBook() {
   const [account,setAccount]=useState<string|null>(null);
   const [email,setEmail]=useState("");
   const [cloudReady,setCloudReady]=useState(false);
+
   const [cloudMessage,setCloudMessage]=useState("");
   const [avatarUrl,setAvatarUrl]=useState("");
   const avatarInput=useRef<HTMLInputElement>(null);
@@ -56,6 +57,53 @@ export default function StickerBook() {
     const {data}=await supabase.storage.from("profile-pictures").createSignedUrl(path,3600);
     setAvatarUrl(data?.signedUrl??"");setCloudMessage("Profile picture saved ✓");
   }
+  useEffect(()=>{
+    if(!supabase||!account||!ready){setCloudReady(false);return;}
+    let cancelled=false;
+    async function loadCloud(){
+      const [{data:items,error},{data:profile}]=await Promise.all([
+        supabase!.from("journal_items").select("*").eq("user_id",account!),
+        supabase!.from("journal_profiles").select("avatar_path").eq("user_id",account!).maybeSingle()
+      ]);
+      if(cancelled)return;
+      if(error){setCloudMessage("Could not load your journal: "+error.message);return;}
+      if(profile?.avatar_path){const {data}=await supabase!.storage.from("profile-pictures").createSignedUrl(profile.avatar_path,3600);if(!cancelled)setAvatarUrl(data?.signedUrl??"");}
+      if(items?.length){
+        const restored=await Promise.all(items.map(async item=>{
+          const photo=item.kind==="photo"&&item.image_path?(await supabase!.storage.from("journal-photos").createSignedUrl(item.image_path,3600)).data?.signedUrl:undefined;
+          return {id:item.client_id||item.id,label:item.label,sub:item.subtitle||"",x:Number(item.pos_x),y:Number(item.pos_y),rotate:Number(item.rotation),color:item.color||"#fff1a9",kind:item.kind as Sticker["kind"],note:item.note||undefined,photo,page:item.page_number} as Sticker;
+        }));
+        if(!cancelled)setStickers(restored);
+      }
+      if(!cancelled){setCloudReady(true);setCloudMessage("Cloud journal connected ✓");}
+    }
+    void loadCloud();return()=>{cancelled=true;};
+  },[account,ready]);
+  useEffect(()=>{
+    if(!supabase||!account||!cloudReady)return;
+    const timer=setTimeout(async()=>{
+      const client=supabase!;
+      const {data:existing,error:readError}=await client.from("journal_items").select("id,client_id,image_path").eq("user_id",account);
+      if(readError){setCloudMessage("Save failed: "+readError.message);return;}
+      const rows=[];
+      for(const item of stickers){
+        const prior=existing?.find(row=>row.client_id===item.id);
+        let imagePath=prior?.image_path??null;
+        if(item.kind==="photo"&&item.photo?.startsWith("data:")&&!imagePath){
+          const blob=await(await fetch(item.photo)).blob();const path=account+"/"+crypto.randomUUID()+".jpg";
+          const {error}=await client.storage.from("journal-photos").upload(path,blob,{contentType:"image/jpeg"});
+          if(error){setCloudMessage("Photo upload failed: "+error.message);return;}
+          imagePath=path;
+        }
+        rows.push({id:prior?.id??crypto.randomUUID(),user_id:account,client_id:item.id,kind:item.kind,album_key:item.kind==="album"?item.label.toLowerCase().trim():null,label:item.label,subtitle:item.sub,note:item.note??null,image_path:imagePath,page_number:item.page??(item.id.startsWith("page2-")?2:1),pos_x:item.x,pos_y:item.y,rotation:item.rotate,color:item.color});
+      }
+      if(rows.length){const {error}=await client.from("journal_items").upsert(rows,{onConflict:"user_id,client_id"});if(error){setCloudMessage("Save failed: "+error.message);return;}}
+      const removed=(existing??[]).filter(row=>!stickers.some(item=>item.id===row.client_id));
+      if(removed.length){const {error}=await client.from("journal_items").delete().eq("user_id",account).in("id",removed.map(row=>row.id));if(error){setCloudMessage("Delete failed: "+error.message);return;}}
+      setCloudMessage("Saved to your account ✓");
+    },1200);
+    return()=>clearTimeout(timer);
+  },[stickers,account,cloudReady]);
   const shown=stickers.filter(s=>(s.page??(s.id.startsWith("page2-")?2:1))===page);
   const hasMelodrama=stickers.some(s=>s.kind==="album"&&s.label.toLowerCase().trim()==="melodrama");
   function startDrag(e:React.PointerEvent<HTMLButtonElement>,id:string){
@@ -108,7 +156,7 @@ export default function StickerBook() {
         {account?<><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{void uploadAvatar(e.target.files?.[0]);e.target.value="";}}/><button className="rounded-xl bg-[#fff1a9] px-3 py-2 text-sm font-bold" onClick={()=>avatarInput.current?.click()}>Upload profile picture</button><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void supabase?.auth.signOut()}>Sign out</button></>:supabase?<form className="flex flex-wrap gap-2" onSubmit={e=>{e.preventDefault();void emailSignIn();}}><input type="email" required placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} className="rounded-lg border p-2 text-sm"/><button className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white">Email sign-in link</button></form>:<p className="text-xs">Cloud configuration pending</p>}
         {cloudMessage&&<p role="status" className="w-full text-xs text-[#1355c8]">{cloudMessage}</p>}
       </section>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">Your layout saves in this browser ✳</span></div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">{account?"Your layout syncs to Supabase ✳":"Your layout saves in this browser ✳"}</span></div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_245px]">
         <div ref={board} className="relative min-h-[650px] overflow-hidden rounded-[5px_19px_18px_6px] border border-[#d4c5a6] bg-[#f4e6c7] shadow-[8px_12px_0_#e0d7c4,12px_16px_25px_#a89d8640] md:min-h-[730px]" style={{backgroundImage:"repeating-linear-gradient(0deg,transparent 0px,transparent 29px,#9ca7a128 30px,#9ca7a128 31px),linear-gradient(90deg,#e9d7b4 0px,#e9d7b4 34px,#f9efda 35px,#f9efda 100%)"}}>
           <div className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#e2a9a9]"/><div className="pointer-events-none absolute right-6 top-5 rotate-[8deg] border-2 border-dashed border-[#bd7c66] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[#ae6b5b]">Collected with ♡</div>
@@ -120,7 +168,7 @@ export default function StickerBook() {
         </div>
         <aside className="self-start rounded-2xl border border-[#e1d8c7] bg-white p-5 shadow-sm"><p className="text-xs font-black uppercase tracking-[.18em] text-[#1355c8]">JOURNAL SUPPLIES</p><h2 className="mt-2 text-xl font-black">Make it yours ↗</h2><div className="mt-5 grid gap-2"><button onClick={()=>add("note","Note to self")} className="rounded-xl border border-[#e8d7a1] bg-[#fff1a9] px-4 py-3 text-left text-sm font-bold">✎ Add a sticky note</button><button onClick={()=>add("decoration","✿","","#f3a8bd")} className="rounded-xl border border-[#edc4d1] bg-[#fff1f5] px-4 py-3 text-left text-sm font-bold">✿ Add a flower</button><button onClick={()=>add("decoration","★","","#f5d36a")} className="rounded-xl border border-[#e8d7a1] bg-[#fff9dc] px-4 py-3 text-left text-sm font-bold">★ Add a star</button><button disabled={hasMelodrama} onClick={()=>add("album","Melodrama","Lorde","#4b6fbb")} className="rounded-xl border border-[#cddaf5] bg-[#f1f5ff] px-4 py-3 text-left text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">💿 {hasMelodrama?"Melodrama collected ✓":"Add Melodrama"}</button><input ref={photoInput} type="file" accept="image/*" className="hidden" aria-label="Choose journal photo" onChange={e=>{void uploadPhoto(e.target.files?.[0]);e.target.value="";}}/><button onClick={()=>photoInput.current?.click()} className="rounded-xl border border-[#b5d7b9] bg-[#edf9ed] px-4 py-3 text-left text-sm font-bold">📷 Add a photo memory</button>{photoError&&<p role="alert" className="text-xs font-semibold text-[#b43243]">{photoError}</p>}</div>
           {chosen&&<div className="mt-6 border-t border-[#eee5d8] pt-5"><p className="text-xs font-black uppercase tracking-widest">Selected sticker</p><p className="mt-2 font-bold">{chosen.label}</p><label className="mt-3 block text-xs font-bold">Rotation <span className="font-normal">{chosen.rotate}°</span><input type="range" min="-35" max="35" value={chosen.rotate} onChange={e=>changeActive({rotate:Number(e.target.value)})} className="mt-2 w-full accent-[#1355c8]"/></label><label className="mt-3 block text-xs font-bold">Journal page<select value={chosen.page??(chosen.id.startsWith("page2-")?2:1)} onChange={e=>{changeActive({page:Number(e.target.value)});setActive(null);}} className="mt-2 w-full rounded-lg border border-[#ddd] bg-white p-2 text-sm"><option value={1}>Page 01</option><option value={2}>Page 02</option></select></label>{chosen.kind==="photo"&&<label className="mt-3 block text-xs font-bold">Photo caption<input value={chosen.label} onChange={e=>changeActive({label:e.target.value})} className="mt-2 w-full rounded-lg border border-[#ddd] p-2 text-sm font-normal"/></label>}{chosen.kind==="note"&&<label className="mt-3 block text-xs font-bold">Your note<textarea value={chosen.note||""} onChange={e=>changeActive({note:e.target.value})} rows={4} className="mt-2 w-full rounded-lg border border-[#ddd] p-2 text-sm font-normal"/></label>}<button onClick={()=>{setStickers(prev=>prev.filter(s=>s.id!==active));setActive(null);}} className="mt-4 text-xs font-bold text-[#c34555] underline">Remove from page</button></div>}
-          <p className="mt-6 text-xs leading-relaxed text-[#746d65]">Tip: drag stickers with your mouse or finger. Tap one to rotate it or edit its note. Photos are compressed and saved only in this browser for now, not uploaded to Supabase. The starter stickers are examples, not verified listening history.</p>
+          <p className="mt-6 text-xs leading-relaxed text-[#746d65]">Tip: drag stickers with your mouse or finger. Tap one to rotate it or edit its note. Photos are compressed in your browser and uploaded to private Supabase storage when you sign in. The starter stickers are examples, not verified listening history.</p>
         </aside>
       </div>
     </div>
