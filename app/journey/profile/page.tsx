@@ -42,7 +42,7 @@ export default function StickerBook() {
   },[]);
   async function emailSignIn(){
     if(!supabase)return;
-    const {error}=await supabase.auth.signInWithOtp({email,emailRedirectTo:window.location.href});
+    const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
     setCloudMessage(error?error.message:"Check your email for a sign-in link ✉");
   }
   async function uploadAvatar(file?:File){
