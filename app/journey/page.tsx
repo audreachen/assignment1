@@ -44,7 +44,7 @@ export default function JourneyPage() {
     <div className="mx-auto max-w-7xl px-5 pb-24 pt-6 md:px-10">
       <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-5">
         <Link href="/journey" className="flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl"><span className="rotate-[-7deg] rounded-xl border-2 border-[#1355c8] bg-white px-3 py-1 text-[#1355c8] shadow-[3px_3px_0_#ffe54f]">album journeys ✳</span></Link>
-        <div className="flex items-center gap-5 text-sm font-semibold"><a href="#discover" className="hover:underline">Discover</a><a href="#how-it-works" className="hover:underline">The idea</a><Link href="/journey/profile" className="font-black text-[#1355c8] hover:underline">My Sticker Book ↗</Link><Link href="/" className="text-[#8b8377] hover:underline">JUKECRAFT ↗</Link></div>
+        <div className="flex items-center gap-5 text-sm font-semibold"><a href="#discover" className="hover:underline">Discover</a><a href="#how-it-works" className="hover:underline">The idea</a><Link href="/journey/profile" className="font-black text-[#1355c8] hover:underline">My Sticker Book ↗</Link></div>
       </nav>
 
       <section className="grid gap-8 py-10 md:grid-cols-[1.5fr_0.5fr] md:items-center">
