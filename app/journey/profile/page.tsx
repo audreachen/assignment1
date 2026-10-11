@@ -1,0 +1,70 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+
+type Sticker = { id: string; label: string; sub: string; x: number; y: number; rotate: number; color: string; kind: "album" | "note" | "decoration"; note?: string };
+const starter: Sticker[] = [
+  { id:"jubilee",label:"Jubilee",sub:"Japanese Breakfast",x:8,y:13,rotate:-9,color:"#efb34c",kind:"album" },
+  { id:"imaginal",label:"Imaginal Disk",sub:"Magdalena Bay",x:57,y:11,rotate:8,color:"#7d9ed8",kind:"album" },
+  { id:"note-1",label:"Dear diary...",sub:"",x:35,y:43,rotate:-4,color:"#fff1a9",kind:"note",note:"Songs for the long way home ♡" },
+  { id:"tape-1",label:"✿",sub:"",x:79,y:64,rotate:16,color:"#f3a8bd",kind:"decoration" },
+  { id:"punisher",label:"Punisher",sub:"Phoebe Bridgers",x:10,y:65,rotate:7,color:"#9ba6b3",kind:"album" },
+];
+const storageKey="album-journeys-junk-journal-v1";
+const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
+
+export default function StickerBook() {
+  const [stickers,setStickers]=useState<Sticker[]>(starter);
+  const [ready,setReady]=useState(false);
+  const [active,setActive]=useState<string|null>(null);
+  const [page,setPage]=useState(1);
+  const board=useRef<HTMLDivElement>(null);
+  const drag=useRef<{id:string;offsetX:number;offsetY:number}|null>(null);
+  useEffect(()=>{try {const raw=localStorage.getItem(storageKey);if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed.stickers))setStickers(parsed.stickers);if(parsed.page===1||parsed.page===2)setPage(parsed.page);}}catch{}setReady(true);},[]);
+  useEffect(()=>{if(ready)localStorage.setItem(storageKey,JSON.stringify({stickers,page}));},[stickers,page,ready]);
+  const shown=stickers.filter(s=>page===1?!s.id.startsWith("page2-"):s.id.startsWith("page2-"));
+  function startDrag(e:React.PointerEvent<HTMLButtonElement>,id:string){
+    if(!board.current)return;
+    const rect=board.current.getBoundingClientRect();
+    const item=stickers.find(s=>s.id===id);if(!item)return;
+    drag.current={id,offsetX:(e.clientX-rect.left)/rect.width*100-item.x,offsetY:(e.clientY-rect.top)/rect.height*100-item.y};
+    e.currentTarget.setPointerCapture(e.pointerId);setActive(id);
+  }
+  function moveDrag(e:React.PointerEvent<HTMLButtonElement>){
+    if(!drag.current||!board.current)return;
+    const rect=board.current.getBoundingClientRect();
+    const {id,offsetX,offsetY}=drag.current;
+    const x=clamp((e.clientX-rect.left)/rect.width*100-offsetX,0,78);
+    const y=clamp((e.clientY-rect.top)/rect.height*100-offsetY,0,83);
+    setStickers(prev=>prev.map(s=>s.id===id?{...s,x,y}:s));
+  }
+  function add(kind:Sticker["kind"],label:string,sub="",color="#fff1a9"){
+    const id=(page===2?"page2-":"")+kind+"-"+Date.now();
+    setStickers(prev=>[...prev,{id,label,sub,x:27+Math.random()*25,y:25+Math.random()*25,rotate:Math.random()*18-9,color,kind,note:kind==="note"?"A little memory from this run...":undefined}]);
+    setActive(id);
+  }
+  function changeActive(patch:Partial<Sticker>){setStickers(prev=>prev.map(s=>s.id===active?{...s,...patch}:s));}
+  const chosen=stickers.find(s=>s.id===active&&shown.includes(s));
+  return <main className="min-h-screen bg-[#f9f7f1] text-[#27231e]">
+    <div className="mx-auto max-w-6xl px-4 pb-20 pt-6 md:px-8">
+      <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e0d9c9] pb-5"><Link href="/journey" className="rotate-[-3deg] rounded-lg border-2 border-[#1355c8] bg-white px-3 py-1 text-xl font-black text-[#1355c8] shadow-[3px_3px_0_#ffe54f]">album journeys ✳</Link><Link href="/journey" className="text-sm font-black text-[#1355c8] hover:underline">← Back to the Crate</Link></nav>
+      <header className="py-8"><p className="text-xs font-black uppercase tracking-[.24em] text-[#1355c8]">THE COLLECTION / VOL. 01</p><h1 className="mt-2 text-4xl font-black tracking-tight md:text-6xl">My Sticker Book <span className="inline-block rotate-[-12deg]">✿</span></h1><p className="mt-3 max-w-xl text-[#6a6258]">A messy little home for the albums that follow you around. Drag, overlap, rotate, and make the pages yours.</p></header>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">Your layout saves in this browser ✳</span></div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_245px]">
+        <div ref={board} className="relative min-h-[650px] overflow-hidden rounded-[5px_19px_18px_6px] border border-[#d4c5a6] bg-[#f4e6c7] shadow-[8px_12px_0_#e0d7c4,12px_16px_25px_#a89d8640] md:min-h-[730px]" style={{backgroundImage:"repeating-linear-gradient(0deg,transparent 0px,transparent 29px,#9ca7a128 30px,#9ca7a128 31px),linear-gradient(90deg,#e9d7b4 0px,#e9d7b4 34px,#f9efda 35px,#f9efda 100%)"}}>
+          <div className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#e2a9a9]"/><div className="pointer-events-none absolute right-6 top-5 rotate-[8deg] border-2 border-dashed border-[#bd7c66] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[#ae6b5b]">Collected with ♡</div>
+          <span className="pointer-events-none absolute bottom-5 right-7 font-serif text-2xl italic text-[#b0a088]">{String(page).padStart(2,"0")}</span>
+          {shown.map(s=><button key={s.id} type="button" onPointerDown={e=>startDrag(e,s.id)} onPointerMove={moveDrag} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onClick={()=>setActive(s.id)} aria-label={`Move or edit ${s.label}`} className={`absolute flex touch-none select-none flex-col items-center justify-center text-center shadow-[3px_5px_9px_#5c493740] transition-shadow hover:shadow-[5px_8px_14px_#5c493760] ${active===s.id?"outline-2 outline-dashed outline-[#1355c8] outline-offset-4":""} ${s.kind==="album"?"h-36 w-36 rounded-[47%_53%_48%_52%] border-[6px] border-white p-3 md:h-44 md:w-44":s.kind==="note"?"h-36 w-40 p-4":"h-20 w-20 rounded-full border-4 border-white text-4xl"}`} style={{left:`${s.x}%`,top:`${s.y}%`,transform:`rotate(${s.rotate}deg)`,backgroundColor:s.color,cursor:"grab",zIndex:active===s.id?30:10}}>
+            {s.kind==="album"?<><span className="mb-2 text-[10px] font-black uppercase tracking-wider text-white drop-shadow">{s.sub}</span><span className="font-serif text-2xl font-black italic leading-none text-white drop-shadow-md">{s.label}</span><span className="mt-3 bg-white/90 px-2 py-1 font-mono text-[8px] text-[#222]">AJ ✳ RECORD CLUB</span></>:s.kind==="note"?<><span className="self-start font-serif text-xl font-bold italic">{s.label}</span><span className="mt-2 whitespace-pre-wrap font-serif text-sm italic leading-snug">{s.note}</span></>:<span>{s.label}</span>}
+          </button>)}
+          {shown.length===0&&<p className="absolute left-1/2 top-1/2 w-56 -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] text-center font-serif text-2xl italic text-[#aa9171]">A fresh page, just for you. ✿</p>}
+        </div>
+        <aside className="self-start rounded-2xl border border-[#e1d8c7] bg-white p-5 shadow-sm"><p className="text-xs font-black uppercase tracking-[.18em] text-[#1355c8]">JOURNAL SUPPLIES</p><h2 className="mt-2 text-xl font-black">Make it yours ↗</h2><div className="mt-5 grid gap-2"><button onClick={()=>add("note","Note to self")} className="rounded-xl border border-[#e8d7a1] bg-[#fff1a9] px-4 py-3 text-left text-sm font-bold">✎ Add a sticky note</button><button onClick={()=>add("decoration","✿","","#f3a8bd")} className="rounded-xl border border-[#edc4d1] bg-[#fff1f5] px-4 py-3 text-left text-sm font-bold">✿ Add a flower</button><button onClick={()=>add("decoration","★","","#f5d36a")} className="rounded-xl border border-[#e8d7a1] bg-[#fff9dc] px-4 py-3 text-left text-sm font-bold">★ Add a star</button><button onClick={()=>add("album","Melodrama","Lorde","#4b6fbb")} className="rounded-xl border border-[#cddaf5] bg-[#f1f5ff] px-4 py-3 text-left text-sm font-bold">💿 Add Melodrama</button></div>
+          {chosen&&<div className="mt-6 border-t border-[#eee5d8] pt-5"><p className="text-xs font-black uppercase tracking-widest">Selected sticker</p><p className="mt-2 font-bold">{chosen.label}</p><label className="mt-3 block text-xs font-bold">Rotation <span className="font-normal">{chosen.rotate}°</span><input type="range" min="-35" max="35" value={chosen.rotate} onChange={e=>changeActive({rotate:Number(e.target.value)})} className="mt-2 w-full accent-[#1355c8]"/></label>{chosen.kind==="note"&&<label className="mt-3 block text-xs font-bold">Your note<textarea value={chosen.note||""} onChange={e=>changeActive({note:e.target.value})} rows={4} className="mt-2 w-full rounded-lg border border-[#ddd] p-2 text-sm font-normal"/></label>}<button onClick={()=>{setStickers(prev=>prev.filter(s=>s.id!==active));setActive(null);}} className="mt-4 text-xs font-bold text-[#c34555] underline">Remove from page</button></div>}
+          <p className="mt-6 text-xs leading-relaxed text-[#746d65]">Tip: drag stickers with your mouse or finger. Tap one to rotate it or edit its note. This is a local prototype; the starter stickers are examples, not verified listening history.</p>
+        </aside>
+      </div>
+    </div>
+  </main>;
+}
