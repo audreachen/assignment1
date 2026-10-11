@@ -26,6 +26,19 @@ export default function JourneyPage() {
   const [mood, setMood] = useState("All");
   const [duration, setDuration] = useState("Any length");
   const [selected, setSelected] = useState<Album | null>(null);
+  const [runMinutes, setRunMinutes] = useState(40);
+  const [pattern, setPattern] = useState("Build");
+  const [showMatches, setShowMatches] = useState(false);
+  const patterns = ["Steady", "Build", "High energy", "Varied"];
+  const ranked = useMemo(() => albums.map(album => {
+    const avg = album.energy.reduce((a,b)=>a+b,0)/album.energy.length;
+    const first = album.energy.slice(0,3).reduce((a,b)=>a+b,0)/3;
+    const last = album.energy.slice(-3).reduce((a,b)=>a+b,0)/3;
+    const variation = Math.max(...album.energy)-Math.min(...album.energy);
+    const preference = pattern==="Steady" ? variation : pattern==="Build" ? 100-(last-first) : pattern==="High energy" ? 100-avg : 100-variation;
+    const score = Math.abs(album.minutes-runMinutes)*2 + preference*0.3;
+    return {album, score, difference:album.minutes-runMinutes};
+  }).sort((a,b)=>a.score-b.score).slice(0,3), [runMinutes,pattern]);
   const filtered = useMemo(() => albums.filter(a => (mood === "All" || a.mood === mood) && (duration === "Any length" || (duration === "Under 45 min" ? a.minutes < 45 : a.minutes >= 45))), [mood, duration]);
   return <main className="min-h-screen bg-white text-[#151515]">
     <div className="mx-auto max-w-7xl px-5 pb-24 pt-6 md:px-10">
@@ -36,7 +49,14 @@ export default function JourneyPage() {
 
       <section className="grid gap-8 py-10 md:grid-cols-[1.5fr_0.5fr] md:items-center">
         <div><p className="mb-3 text-sm font-bold tracking-wide text-[#1559c8]">♪ albums for the long way around</p><h1 className="max-w-3xl text-5xl font-black leading-[1.02] tracking-tight md:text-7xl">What are we<br/>listening to<span className="text-[#f4d629]">? ✳</span></h1><p className="mt-5 max-w-xl text-base text-[#555]">Albums for the road, the trail, or wherever your feet take you.</p></div>
-        <a href="#discover" className="group relative mx-auto flex h-48 w-48 rotate-[9deg] flex-col items-center justify-center rounded-[42%_55%_45%_55%] border-[8px] border-white bg-[#ed3449] p-4 text-center text-white shadow-[0_0_0_2px_#e4e4e4,5px_7px_0_#e7e7e7] transition hover:rotate-0"><span className="absolute -top-5 text-4xl">🍓</span><span className="text-2xl font-black italic leading-tight">find my next<br/>run album ↗</span><span className="mt-2 text-xs font-bold">TIME · MOOD · ENERGY</span></a>
+        <a href="#match" className="group relative mx-auto flex h-48 w-48 rotate-[9deg] flex-col items-center justify-center rounded-[42%_55%_45%_55%] border-[8px] border-white bg-[#ed3449] p-4 text-center text-white shadow-[0_0_0_2px_#e4e4e4,5px_7px_0_#e7e7e7] transition hover:rotate-0"><span className="absolute -top-5 text-4xl">🍓</span><span className="text-2xl font-black italic leading-tight">find my next<br/>run album ↗</span><span className="mt-2 text-xs font-bold">TIME · MOOD · ENERGY</span></a>
+      </section>
+      <section id="match" className="mb-12 scroll-mt-6 rounded-3xl border-2 border-[#1559c8] bg-[#f5f8ff] p-6 md:p-9">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#1559c8]">YOUR RUN / YOUR RECORD</p><h2 className="mt-2 text-3xl font-black md:text-4xl">Find my run album ✳</h2><p className="mt-2 text-sm text-[#555]">Match your running time with a musical energy pattern.</p></div><span className="rotate-[7deg] rounded-full bg-[#ffe447] px-5 py-3 text-sm font-black">🍋 MATCHMAKER</span></div>
+        <div className="grid gap-7 md:grid-cols-2"><div><label htmlFor="run-length" className="flex items-center justify-between font-bold"><span>How long is your run?</span><span className="text-2xl text-[#1559c8]">{runMinutes} min</span></label><input id="run-length" type="range" min="20" max="90" step="5" value={runMinutes} onChange={e=>{setRunMinutes(Number(e.target.value));setShowMatches(false);}} className="mt-5 w-full accent-[#1559c8]"/><div className="mt-1 flex justify-between text-xs text-[#666]"><span>20 min</span><span>90 min</span></div></div>
+        <div><p className="mb-3 font-bold">What energy pattern sounds right?</p><div className="flex flex-wrap gap-2">{patterns.map(v=><button key={v} type="button" aria-pressed={pattern===v} onClick={()=>{setPattern(v);setShowMatches(false);}} className={`rounded-full border-2 px-4 py-2 text-sm font-bold transition ${pattern===v?"border-[#1559c8] bg-[#1559c8] text-white":"border-[#d3ddf1] bg-white hover:border-[#1559c8]"}`}>{v}</button>)}</div><p className="mt-3 text-xs text-[#666]">Energy curves are sample data for now—not measured BPM or audio features.</p></div></div>
+        <button type="button" onClick={()=>setShowMatches(true)} className="mt-7 rounded-full bg-[#ed3449] px-7 py-4 text-base font-black text-white shadow-[3px_4px_0_#ffc5ce] transition hover:-translate-y-0.5">Find my matches ↗</button>
+        {showMatches&&<div aria-live="polite" className="mt-8 border-t border-[#d7e0f1] pt-6"><h3 className="text-xl font-black">Your top three album matches ↓</h3><p className="mt-1 text-sm text-[#555]">Ranked by run-length proximity and your chosen illustrative energy pattern.</p><div className="mt-4 grid gap-3 md:grid-cols-3">{ranked.map(({album,difference},i)=><div key={album.title} className="rounded-xl border border-[#e2e7f1] bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-[#1559c8]">MATCH 0{i+1}</p><p className="mt-2 text-lg font-black">{album.title}</p><p className="text-sm text-[#555]">{album.artist}</p><p className="mt-2 text-xs font-semibold">{album.minutes} min · {difference===0?"Exact duration":difference>0?`${difference} min longer`:`${Math.abs(difference)} min shorter`}</p><EnergyMap values={album.energy} accent="#1559c8"/>{album.title==="Jubilee"?<Link href="/journey/jubilee" className="text-sm font-black text-[#1559c8] underline">Explore & listen ↗</Link>:<button type="button" onClick={()=>setSelected(album)} className="text-sm font-black text-[#1559c8] underline">Preview journey ↗</button>}</div>)}</div></div>}
       </section>
       <section id="discover" className="scroll-mt-6">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1559c8]">STICKER SHEET / 001</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Pick a sticker ↓</h2></div><p className="text-sm text-[#666]">{filtered.length} albums to explore</p></div>
