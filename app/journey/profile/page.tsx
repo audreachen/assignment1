@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-type Sticker = { id: string; label: string; sub: string; x: number; y: number; rotate: number; color: string; kind: "album" | "note" | "decoration"; note?: string };
+type Sticker = { id: string; label: string; sub: string; x: number; y: number; rotate: number; color: string; kind: "album" | "note" | "decoration" | "photo"; note?: string; photo?: string; page?: number };
 const starter: Sticker[] = [
   { id:"jubilee",label:"Jubilee",sub:"Japanese Breakfast",x:8,y:13,rotate:-9,color:"#efb34c",kind:"album" },
   { id:"imaginal",label:"Imaginal Disk",sub:"Magdalena Bay",x:57,y:11,rotate:8,color:"#7d9ed8",kind:"album" },
@@ -20,10 +20,13 @@ export default function StickerBook() {
   const [active,setActive]=useState<string|null>(null);
   const [page,setPage]=useState(1);
   const board=useRef<HTMLDivElement>(null);
+  const photoInput=useRef<HTMLInputElement>(null);
+  const [photoError,setPhotoError]=useState("");
   const drag=useRef<{id:string;offsetX:number;offsetY:number}|null>(null);
-  useEffect(()=>{try {const raw=localStorage.getItem(storageKey);if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed.stickers))setStickers(parsed.stickers);if(parsed.page===1||parsed.page===2)setPage(parsed.page);}}catch{}setReady(true);},[]);
-  useEffect(()=>{if(ready)localStorage.setItem(storageKey,JSON.stringify({stickers,page}));},[stickers,page,ready]);
-  const shown=stickers.filter(s=>page===1?!s.id.startsWith("page2-"):s.id.startsWith("page2-"));
+  useEffect(()=>{try {const raw=localStorage.getItem(storageKey);if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed.stickers)){const seen=new Set<string>();setStickers(parsed.stickers.filter((s:Sticker)=>{if(s.kind==="album"){const key=s.label.toLowerCase().trim();if(seen.has(key))return false;seen.add(key);}return true;}));}if(parsed.page===1||parsed.page===2)setPage(parsed.page);}}catch{}setReady(true);},[]);
+  useEffect(()=>{if(ready){try{localStorage.setItem(storageKey,JSON.stringify({stickers,page}));}catch{setPhotoError("Browser storage is full. Remove a photo to save new changes.");}}},[stickers,page,ready]);
+  const shown=stickers.filter(s=>(s.page??(s.id.startsWith("page2-")?2:1))===page);
+  const hasMelodrama=stickers.some(s=>s.kind==="album"&&s.label.toLowerCase().trim()==="melodrama");
   function startDrag(e:React.PointerEvent<HTMLButtonElement>,id:string){
     if(!board.current)return;
     const rect=board.current.getBoundingClientRect();
@@ -40,9 +43,27 @@ export default function StickerBook() {
     setStickers(prev=>prev.map(s=>s.id===id?{...s,x,y}:s));
   }
   function add(kind:Sticker["kind"],label:string,sub="",color="#fff1a9"){
+    if(kind==="album"&&stickers.some(s=>s.kind==="album"&&s.label.toLowerCase().trim()===label.toLowerCase().trim()))return;
     const id=(page===2?"page2-":"")+kind+"-"+Date.now();
-    setStickers(prev=>[...prev,{id,label,sub,x:27+Math.random()*25,y:25+Math.random()*25,rotate:Math.random()*18-9,color,kind,note:kind==="note"?"A little memory from this run...":undefined}]);
+    setStickers(prev=>[...prev,{id,label,sub,x:27+Math.random()*25,y:25+Math.random()*25,rotate:Math.random()*18-9,color,kind,page,note:kind==="note"?"A little memory from this run...":undefined}]);
     setActive(id);
+  }
+  async function uploadPhoto(file?:File){
+    if(!file)return;
+    setPhotoError("");
+    if(!file.type.startsWith("image/")){setPhotoError("Please choose an image file.");return;}
+    if(file.size>12*1024*1024){setPhotoError("Choose a photo under 12 MB.");return;}
+    try {
+      const image=new Image();const url=URL.createObjectURL(file);
+      try {await new Promise<void>((resolve,reject)=>{image.onload=()=>resolve();image.onerror=()=>reject(new Error("Could not read this image."));image.src=url;});
+        const scale=Math.min(1,900/Math.max(image.naturalWidth,image.naturalHeight));
+        const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+        const ctx=canvas.getContext("2d");if(!ctx)throw new Error("Image processing unavailable.");ctx.drawImage(image,0,0,canvas.width,canvas.height);
+        const photo=canvas.toDataURL("image/jpeg",0.72);
+        const id=(page===2?"page2-":"")+"photo-"+Date.now();
+        setStickers(prev=>[...prev,{id,label:"A little memory",sub:"",x:30,y:25,rotate:-5,color:"#ffffff",kind:"photo",photo,page}]);setActive(id);
+      }finally{URL.revokeObjectURL(url);}
+    }catch{setPhotoError("This photo could not be added. Try a JPG or PNG.");}
   }
   function changeActive(patch:Partial<Sticker>){setStickers(prev=>prev.map(s=>s.id===active?{...s,...patch}:s));}
   const chosen=stickers.find(s=>s.id===active&&shown.includes(s));
@@ -55,14 +76,14 @@ export default function StickerBook() {
         <div ref={board} className="relative min-h-[650px] overflow-hidden rounded-[5px_19px_18px_6px] border border-[#d4c5a6] bg-[#f4e6c7] shadow-[8px_12px_0_#e0d7c4,12px_16px_25px_#a89d8640] md:min-h-[730px]" style={{backgroundImage:"repeating-linear-gradient(0deg,transparent 0px,transparent 29px,#9ca7a128 30px,#9ca7a128 31px),linear-gradient(90deg,#e9d7b4 0px,#e9d7b4 34px,#f9efda 35px,#f9efda 100%)"}}>
           <div className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#e2a9a9]"/><div className="pointer-events-none absolute right-6 top-5 rotate-[8deg] border-2 border-dashed border-[#bd7c66] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[#ae6b5b]">Collected with ♡</div>
           <span className="pointer-events-none absolute bottom-5 right-7 font-serif text-2xl italic text-[#b0a088]">{String(page).padStart(2,"0")}</span>
-          {shown.map(s=><button key={s.id} type="button" onPointerDown={e=>startDrag(e,s.id)} onPointerMove={moveDrag} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onClick={()=>setActive(s.id)} aria-label={`Move or edit ${s.label}`} className={`absolute flex touch-none select-none flex-col items-center justify-center text-center shadow-[3px_5px_9px_#5c493740] transition-shadow hover:shadow-[5px_8px_14px_#5c493760] ${active===s.id?"outline-2 outline-dashed outline-[#1355c8] outline-offset-4":""} ${s.kind==="album"?"h-36 w-36 rounded-[47%_53%_48%_52%] border-[6px] border-white p-3 md:h-44 md:w-44":s.kind==="note"?"h-36 w-40 p-4":"h-20 w-20 rounded-full border-4 border-white text-4xl"}`} style={{left:`${s.x}%`,top:`${s.y}%`,transform:`rotate(${s.rotate}deg)`,backgroundColor:s.color,cursor:"grab",zIndex:active===s.id?30:10}}>
-            {s.kind==="album"?<><span className="mb-2 text-[10px] font-black uppercase tracking-wider text-white drop-shadow">{s.sub}</span><span className="font-serif text-2xl font-black italic leading-none text-white drop-shadow-md">{s.label}</span><span className="mt-3 bg-white/90 px-2 py-1 font-mono text-[8px] text-[#222]">AJ ✳ RECORD CLUB</span></>:s.kind==="note"?<><span className="self-start font-serif text-xl font-bold italic">{s.label}</span><span className="mt-2 whitespace-pre-wrap font-serif text-sm italic leading-snug">{s.note}</span></>:<span>{s.label}</span>}
+          {shown.map(s=><button key={s.id} type="button" onPointerDown={e=>startDrag(e,s.id)} onPointerMove={moveDrag} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onClick={()=>setActive(s.id)} aria-label={`Move or edit ${s.label}`} className={`absolute flex touch-none select-none flex-col items-center justify-center text-center shadow-[3px_5px_9px_#5c493740] transition-shadow hover:shadow-[5px_8px_14px_#5c493760] ${active===s.id?"outline-2 outline-dashed outline-[#1355c8] outline-offset-4":""} ${s.kind==="album"?"h-36 w-36 rounded-[47%_53%_48%_52%] border-[6px] border-white p-3 md:h-44 md:w-44":s.kind==="note"?"h-36 w-40 p-4":s.kind==="photo"?"h-44 w-36 border-[7px] border-white bg-white p-1 md:h-52 md:w-44":"h-20 w-20 rounded-full border-4 border-white text-4xl"}`} style={{left:`${s.x}%`,top:`${s.y}%`,transform:`rotate(${s.rotate}deg)`,backgroundColor:s.color,cursor:"grab",zIndex:active===s.id?30:10}}>
+            {s.kind==="photo"?<><span className="block h-[80%] w-full overflow-hidden bg-[#eee]">{s.photo&&<img src={s.photo} alt={s.label} draggable={false} className="h-full w-full object-cover"/>}</span><span className="mt-2 font-serif text-xs italic">{s.label}</span></>:s.kind==="album"?<><span className="mb-2 text-[10px] font-black uppercase tracking-wider text-white drop-shadow">{s.sub}</span><span className="font-serif text-2xl font-black italic leading-none text-white drop-shadow-md">{s.label}</span><span className="mt-3 bg-white/90 px-2 py-1 font-mono text-[8px] text-[#222]">AJ ✳ RECORD CLUB</span></>:s.kind==="note"?<><span className="self-start font-serif text-xl font-bold italic">{s.label}</span><span className="mt-2 whitespace-pre-wrap font-serif text-sm italic leading-snug">{s.note}</span></>:<span>{s.label}</span>}
           </button>)}
           {shown.length===0&&<p className="absolute left-1/2 top-1/2 w-56 -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] text-center font-serif text-2xl italic text-[#aa9171]">A fresh page, just for you. ✿</p>}
         </div>
-        <aside className="self-start rounded-2xl border border-[#e1d8c7] bg-white p-5 shadow-sm"><p className="text-xs font-black uppercase tracking-[.18em] text-[#1355c8]">JOURNAL SUPPLIES</p><h2 className="mt-2 text-xl font-black">Make it yours ↗</h2><div className="mt-5 grid gap-2"><button onClick={()=>add("note","Note to self")} className="rounded-xl border border-[#e8d7a1] bg-[#fff1a9] px-4 py-3 text-left text-sm font-bold">✎ Add a sticky note</button><button onClick={()=>add("decoration","✿","","#f3a8bd")} className="rounded-xl border border-[#edc4d1] bg-[#fff1f5] px-4 py-3 text-left text-sm font-bold">✿ Add a flower</button><button onClick={()=>add("decoration","★","","#f5d36a")} className="rounded-xl border border-[#e8d7a1] bg-[#fff9dc] px-4 py-3 text-left text-sm font-bold">★ Add a star</button><button onClick={()=>add("album","Melodrama","Lorde","#4b6fbb")} className="rounded-xl border border-[#cddaf5] bg-[#f1f5ff] px-4 py-3 text-left text-sm font-bold">💿 Add Melodrama</button></div>
-          {chosen&&<div className="mt-6 border-t border-[#eee5d8] pt-5"><p className="text-xs font-black uppercase tracking-widest">Selected sticker</p><p className="mt-2 font-bold">{chosen.label}</p><label className="mt-3 block text-xs font-bold">Rotation <span className="font-normal">{chosen.rotate}°</span><input type="range" min="-35" max="35" value={chosen.rotate} onChange={e=>changeActive({rotate:Number(e.target.value)})} className="mt-2 w-full accent-[#1355c8]"/></label>{chosen.kind==="note"&&<label className="mt-3 block text-xs font-bold">Your note<textarea value={chosen.note||""} onChange={e=>changeActive({note:e.target.value})} rows={4} className="mt-2 w-full rounded-lg border border-[#ddd] p-2 text-sm font-normal"/></label>}<button onClick={()=>{setStickers(prev=>prev.filter(s=>s.id!==active));setActive(null);}} className="mt-4 text-xs font-bold text-[#c34555] underline">Remove from page</button></div>}
-          <p className="mt-6 text-xs leading-relaxed text-[#746d65]">Tip: drag stickers with your mouse or finger. Tap one to rotate it or edit its note. This is a local prototype; the starter stickers are examples, not verified listening history.</p>
+        <aside className="self-start rounded-2xl border border-[#e1d8c7] bg-white p-5 shadow-sm"><p className="text-xs font-black uppercase tracking-[.18em] text-[#1355c8]">JOURNAL SUPPLIES</p><h2 className="mt-2 text-xl font-black">Make it yours ↗</h2><div className="mt-5 grid gap-2"><button onClick={()=>add("note","Note to self")} className="rounded-xl border border-[#e8d7a1] bg-[#fff1a9] px-4 py-3 text-left text-sm font-bold">✎ Add a sticky note</button><button onClick={()=>add("decoration","✿","","#f3a8bd")} className="rounded-xl border border-[#edc4d1] bg-[#fff1f5] px-4 py-3 text-left text-sm font-bold">✿ Add a flower</button><button onClick={()=>add("decoration","★","","#f5d36a")} className="rounded-xl border border-[#e8d7a1] bg-[#fff9dc] px-4 py-3 text-left text-sm font-bold">★ Add a star</button><button disabled={hasMelodrama} onClick={()=>add("album","Melodrama","Lorde","#4b6fbb")} className="rounded-xl border border-[#cddaf5] bg-[#f1f5ff] px-4 py-3 text-left text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">💿 {hasMelodrama?"Melodrama collected ✓":"Add Melodrama"}</button><input ref={photoInput} type="file" accept="image/*" className="hidden" aria-label="Choose journal photo" onChange={e=>{void uploadPhoto(e.target.files?.[0]);e.target.value="";}}/><button onClick={()=>photoInput.current?.click()} className="rounded-xl border border-[#b5d7b9] bg-[#edf9ed] px-4 py-3 text-left text-sm font-bold">📷 Add a photo memory</button>{photoError&&<p role="alert" className="text-xs font-semibold text-[#b43243]">{photoError}</p>}</div>
+          {chosen&&<div className="mt-6 border-t border-[#eee5d8] pt-5"><p className="text-xs font-black uppercase tracking-widest">Selected sticker</p><p className="mt-2 font-bold">{chosen.label}</p><label className="mt-3 block text-xs font-bold">Rotation <span className="font-normal">{chosen.rotate}°</span><input type="range" min="-35" max="35" value={chosen.rotate} onChange={e=>changeActive({rotate:Number(e.target.value)})} className="mt-2 w-full accent-[#1355c8]"/></label><label className="mt-3 block text-xs font-bold">Journal page<select value={chosen.page??(chosen.id.startsWith("page2-")?2:1)} onChange={e=>{changeActive({page:Number(e.target.value)});setActive(null);}} className="mt-2 w-full rounded-lg border border-[#ddd] bg-white p-2 text-sm"><option value={1}>Page 01</option><option value={2}>Page 02</option></select></label>{chosen.kind==="photo"&&<label className="mt-3 block text-xs font-bold">Photo caption<input value={chosen.label} onChange={e=>changeActive({label:e.target.value})} className="mt-2 w-full rounded-lg border border-[#ddd] p-2 text-sm font-normal"/></label>}{chosen.kind==="note"&&<label className="mt-3 block text-xs font-bold">Your note<textarea value={chosen.note||""} onChange={e=>changeActive({note:e.target.value})} rows={4} className="mt-2 w-full rounded-lg border border-[#ddd] p-2 text-sm font-normal"/></label>}<button onClick={()=>{setStickers(prev=>prev.filter(s=>s.id!==active));setActive(null);}} className="mt-4 text-xs font-bold text-[#c34555] underline">Remove from page</button></div>}
+          <p className="mt-6 text-xs leading-relaxed text-[#746d65]">Tip: drag stickers with your mouse or finger. Tap one to rotate it or edit its note. Photos are compressed and saved only in this browser for now, not uploaded to Supabase. The starter stickers are examples, not verified listening history.</p>
         </aside>
       </div>
     </div>
