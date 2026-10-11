@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 type Sticker = { id: string; label: string; sub: string; x: number; y: number; rotate: number; color: string; kind: "album" | "note" | "decoration" | "photo"; note?: string; photo?: string; page?: number };
 const starter: Sticker[] = [
@@ -11,6 +12,7 @@ const starter: Sticker[] = [
   { id:"tape-1",label:"✿",sub:"",x:79,y:64,rotate:16,color:"#f3a8bd",kind:"decoration" },
   { id:"punisher",label:"Punisher",sub:"Phoebe Bridgers",x:10,y:65,rotate:7,color:"#9ba6b3",kind:"album" },
 ];
+const supabase = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL && process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY ? createClient(process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL, process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY) : null;
 const storageKey="album-journeys-junk-journal-v1";
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
 
