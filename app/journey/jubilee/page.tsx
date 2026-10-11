@@ -5,7 +5,7 @@ const tracks = [
   "Sit", "Savage Good Boy", "In Hell", "Tactics", "Posing for Cars",
 ];
 const energy = [38, 65, 54, 81, 92, 67, 85, 58, 76, 48];
-const spotifyAlbumId = "1uD1kdwTWH1DZQZqGKz6rY";
+const spotifyAlbumId = "0ajoNtBO6xHfWEkORtRCAv";
 const coords = energy.map((v,i)=>`${(i/(energy.length-1))*600},${150-v}`).join(" ");
 
 export default function JubileePage() {
@@ -17,8 +17,8 @@ export default function JubileePage() {
       </nav>
       <section className="grid items-center gap-10 py-12 md:grid-cols-2">
         <div className="relative mx-auto flex aspect-square w-full max-w-sm rotate-[-3deg] items-center justify-center overflow-hidden rounded-[45%_55%_48%_52%] border-[10px] border-white bg-[#e9a72c] shadow-[0_0_0_2px_#ddd,8px_9px_0_#f2f2f2]">
-          <div className="absolute inset-8 rounded-full border-4 border-white/70"/>
-          <div className="relative text-center"><p className="text-sm font-black uppercase tracking-[0.2em] text-white">Japanese Breakfast</p><h1 className="mt-5 font-serif text-7xl font-black italic text-white">Jubilee</h1><p className="mt-7 text-xs font-bold uppercase tracking-widest text-white">Album journey no. 001</p></div>
+          <img src="https://coverartarchive.org/release/7aa0673a-53b0-4cb8-9a94-9834b3c43b22/front" alt="Jubilee album cover by Japanese Breakfast" className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-8 rounded-full border-4 border-white/30"/>
+          <span className="absolute bottom-3 right-3 rounded-full bg-[#ffe447] px-3 py-2 text-xs font-black text-black">AJ ✳ 001</span>
         </div>
         <div><p className="text-sm font-bold text-[#1559c8]">✳ THE FEATURED JOURNEY</p><h2 className="mt-3 text-5xl font-black tracking-tight md:text-6xl">Jubilee</h2><p className="mt-2 text-xl text-[#555]">Japanese Breakfast · 2021</p><p className="mt-5 max-w-md leading-relaxed text-[#555]">Ten tracks, one complete listening experience. Follow the twists and turns of the record, from its opening flourish to its final track.</p><div className="mt-6 flex flex-wrap gap-2"><span className="rounded-full bg-[#ffe447] px-4 py-2 text-sm font-bold">10 tracks</span><span className="rounded-full bg-[#e6f0ff] px-4 py-2 text-sm font-bold">About 37 min</span><span className="rounded-full bg-[#e8f8ef] px-4 py-2 text-sm font-bold">Full-album listen</span></div></div>
       </section>
