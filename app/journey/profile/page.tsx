@@ -123,7 +123,9 @@ export default function StickerBook() {
   },[account,ready]);
   useEffect(()=>{
     if(!supabase||!account||!cloudReady)return;
+    setCloudMessage("Saving journal changes…");
     const timer=setTimeout(async()=>{
+      try {
       const client=supabase!;
       const {data:existing,error:readError}=await client.from("journal_items").select("id,client_id,image_path").eq("user_id",account);
       if(readError){setCloudMessage("Save failed: "+readError.message);return;}
@@ -143,6 +145,7 @@ export default function StickerBook() {
       const removed=(existing??[]).filter(row=>!stickers.some(item=>item.id===row.client_id));
       if(removed.length){const {error}=await client.from("journal_items").delete().eq("user_id",account).in("id",removed.map(row=>row.id));if(error){setCloudMessage("Delete failed: "+error.message);return;}}
       setCloudMessage("Saved to your account ✓");
+      } catch(e){setCloudMessage("Save failed: "+(e instanceof Error?e.message:"Unexpected upload error"));}
     },1200);
     return()=>clearTimeout(timer);
   },[stickers,account,cloudReady]);
