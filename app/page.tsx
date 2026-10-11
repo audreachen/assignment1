@@ -55,7 +55,7 @@ export default async function Home() {
                 )}
             </nav>
 
-            <header className="songs-header">
+            <div style={{ margin: "20px auto", maxWidth: 760, padding: 20, background: "#f3efe6", color: "#262b27", borderRadius: 16, textAlign: "center" }}>\n                <p style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase" }}>New concept preview</p>\n                <h2 style={{ fontFamily: "Georgia, serif", fontSize: 28, margin: "10px 0" }}>Every album takes you somewhere.</h2>\n                <Link href="/journey" style={{ display: "inline-block", padding: "10px 20px", background: "#2f4c40", color: "white", borderRadius: 30 }}>Explore Album Journeys →</Link>\n            </div>\n\n            <header className="songs-header">
                 <span>✦ MUSIC INVENTORY ✦</span>
                 <h1>My Songs</h1>
                 <p>
