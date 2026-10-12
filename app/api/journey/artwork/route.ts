@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const wantedAlbum = normalize(album);
     const found = data.results?.find(item =>
       normalize(item.artistName ?? "") === wantedArtist &&
-      normalize(item.collectionName ?? "") === wantedAlbum &&
+      (normalize(item.collectionName ?? "") === wantedAlbum || normalize(item.collectionName ?? "").startsWith(wantedAlbum)) &&
       typeof item.artworkUrl100 === "string"
     );
     if (!found?.artworkUrl100) return new NextResponse(null, { status: 404 });
