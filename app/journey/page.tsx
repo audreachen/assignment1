@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 type Album = { title: string; artist: string; minutes: number; mood: string; arc: string; colors: string; energy: number[]; initials: string };
 const albums: Album[] = [
@@ -12,6 +13,9 @@ const albums: Album[] = [
   { title: "Punisher", artist: "Phoebe Bridgers", minutes: 41, mood: "Reflective", arc: "Slow burn", colors: "from-[#7d8897] via-[#545c6c] to-[#282f3a]", energy: [23,35,32,50,43,60,51,70,92,38], initials: "P" },
   { title: "What's Your Pleasure?", artist: "Jessie Ware", minutes: 53, mood: "Bright", arc: "Keep moving", colors: "from-[#d78d8e] via-[#b34c69] to-[#6b365b]", energy: [68,78,74,89,82,73,91,85,76,92], initials: "W" },
 ];
+
+const journalSupabase = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL && process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY
+  ? createClient(process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL, process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY) : null;
 
 function EnergyMap({ values, accent = "#d8664a" }: { values: number[]; accent?: string }) {
   const coords = values.map((v, i) => `${(i / (values.length - 1)) * 300},${90 - v * 0.75}`).join(" ");
@@ -33,11 +37,44 @@ export default function JourneyPage() {
   const [vibeResult, setVibeResult] = useState<{ title: string; description: string; energy: number[] } | null>(null);
   const [vibeLoading, setVibeLoading] = useState(false);
   const [vibeError, setVibeError] = useState("");
+  const [voteStatus, setVoteStatus] = useState("");
+  const [voteBusy, setVoteBusy] = useState(false);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const vibeMatches = useMemo(() => {
+    if (!vibeResult) return [];
+    return albums.map(album => {
+      const curveDifference = album.energy.reduce((sum, point, i) => sum + Math.abs(point - vibeResult.energy[i]), 0) / 10;
+      const durationDifference = Math.abs(album.minutes - runMinutes);
+      const score = curveDifference * 0.8 + durationDifference * 0.9;
+      return { album, score, curveDifference, durationDifference };
+    }).sort((a, b) => a.score - b.score).slice(0, 3);
+  }, [vibeResult, runMinutes]);
+  async function rateVibe(rating: number) {
+    if (!vibeResult || !journalSupabase || voteBusy) return;
+    setVoteBusy(true); setVoteStatus("");
+    try {
+      const { data: { user }, error: authError } = await journalSupabase.auth.getUser();
+      if (authError || !user) {
+        setVoteStatus("Sign in to My Sticker Book to save your rating.");
+        return;
+      }
+      const fingerprint = JSON.stringify([vibeResult.title, vibeResult.description, vibeResult.energy]);
+      const { error } = await journalSupabase.from("vibe_map_votes").upsert({
+        user_id: user.id, map_fingerprint: fingerprint, map_title: vibeResult.title,
+        map_description: vibeResult.description, energy: vibeResult.energy, rating,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,map_fingerprint" });
+      if (error) throw error;
+      setMyRating(rating); setVoteStatus("Your rating was saved to your account ✓");
+    } catch (error) {
+      setVoteStatus(error instanceof Error ? error.message : "Could not save rating.");
+    } finally { setVoteBusy(false); }
+  }
   async function generateVibe() {
     if (!vibePrompt.trim() || vibeLoading) return;
     setVibeLoading(true);
     setVibeError("");
-    setVibeResult(null);
+    setVibeResult(null); setMyRating(null); setVoteStatus("");
     try {
       const response = await fetch("/api/journey/run-vibe", {
         method: "POST",
@@ -69,7 +106,7 @@ export default function JourneyPage() {
     <div className="mx-auto max-w-7xl px-5 pb-24 pt-6 md:px-10">
       <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-5">
         <Link href="/journey" className="flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl"><span className="rotate-[-7deg] rounded-xl border-2 border-[#1355c8] bg-white px-3 py-1 text-[#1355c8] shadow-[3px_3px_0_#ffe54f]">album journeys ✳</span></Link>
-        <div className="flex items-center gap-5 text-sm font-semibold"><a href="#discover" className="hover:underline">Discover</a><a href="#how-it-works" className="hover:underline">The idea</a><Link href="/journey/profile" className="font-black text-[#1355c8] hover:underline">My Sticker Book ↗</Link></div>
+        <div className="flex items-center gap-5 text-sm font-semibold"><a href="#discover" className="hover:underline">Discover</a><a href="#how-it-works" className="hover:underline">The idea</a><Link href="/journey/profile" className="rounded-full bg-[#1559c8] px-4 py-2 font-black text-white hover:bg-[#1043a1]">Sign in / My Sticker Book ↗</Link></div>
       </nav>
 
       <section className="grid gap-8 py-10 md:grid-cols-[1.5fr_0.5fr] md:items-center">
@@ -87,7 +124,31 @@ export default function JourneyPage() {
           <textarea id="vibe-prompt" maxLength={500} rows={3} value={vibePrompt} onChange={e=>setVibePrompt(e.target.value)} placeholder="I want my run to feel..." className="mt-3 w-full rounded-xl border border-[#c9d8f3] p-3 text-sm" />
           <button type="button" disabled={vibeLoading || !vibePrompt.trim()} onClick={generateVibe} className="mt-3 rounded-full bg-[#1559c8] px-6 py-3 text-sm font-black text-white disabled:opacity-50">{vibeLoading ? "Generating your map…" : "✳ Generate AI vibe map"}</button>
           {vibeError && <p role="alert" className="mt-3 text-sm text-red-700">{vibeError}</p>}
-          {vibeResult && <div className="mt-5 rounded-xl bg-[#fff9e8] p-4" aria-live="polite"><h3 className="text-xl font-black">{vibeResult.title}</h3><p className="mt-1 text-sm text-[#555]">{vibeResult.description}</p><EnergyMap values={vibeResult.energy} accent="#ed3449"/><p className="text-xs text-[#666]">AI-generated illustrative energy · not actual audio analysis</p></div>}
+          {vibeResult && <div className="mt-5 rounded-xl bg-[#fff9e8] p-4" aria-live="polite">
+            <h3 className="text-xl font-black">{vibeResult.title}</h3>
+            <p className="mt-1 text-sm text-[#555]">{vibeResult.description}</p>
+            <EnergyMap values={vibeResult.energy} accent="#ed3449"/>
+            <div className="flex justify-between text-xs text-[#666]"><span>0 min</span><span>{Math.round(runMinutes/4)} min</span><span>{Math.round(runMinutes/2)} min</span><span>{Math.round(runMinutes*3/4)} min</span><span>{runMinutes} min</span></div>
+            <p className="mt-2 text-xs text-[#666]">AI-generated illustrative energy · not actual audio analysis</p>
+            <div className="mt-5 border-t border-[#e9d9b9] pt-4">
+              <h4 className="font-black">How useful was this AI-generated vibe map?</h4>
+              <div className="mt-2 flex flex-wrap gap-2">{[1,2,3,4,5].map(n=><button key={n} type="button" disabled={voteBusy} aria-label={`Rate ${n} out of 5`} aria-pressed={myRating===n} onClick={()=>void rateVibe(n)} className={`rounded-full border px-3 py-2 text-sm font-bold disabled:opacity-50 ${myRating===n?"border-[#1559c8] bg-[#1559c8] text-white":"border-[#c9b99d] bg-white"}`}>{n} ★</button>)}</div>
+              {voteStatus && <p role="status" className="mt-2 text-sm">{voteStatus} {voteStatus.startsWith("Sign in")&&<Link href="/journey/profile" className="font-bold text-[#1559c8] underline">Sign in ↗</Link>}</p>}
+              <p className="mt-1 text-xs text-[#666]">Ratings are saved privately to your account in Supabase.</p>
+            </div>
+            <div className="mt-5 border-t border-[#e9d9b9] pt-4">
+              <h4 className="text-lg font-black">Albums that fit your AI vibe ↓</h4>
+              <p className="mt-1 text-xs text-[#666]">Ranked by similarity to illustrative album energy curves and run duration—not measured audio features.</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">{vibeMatches.map(({album,curveDifference,durationDifference},i)=><div key={album.title} className="rounded-xl border border-[#e9d9b9] bg-white p-3">
+                <p className="text-xs font-black text-[#1559c8]">MATCH 0{i+1}</p>
+                <p className="mt-1 font-black">{album.title}</p><p className="text-sm text-[#555]">{album.artist}</p>
+                <p className="mt-1 text-xs">{album.minutes} min · {durationDifference} min duration difference</p>
+                <EnergyMap values={album.energy} accent="#1559c8"/>
+                <p className="text-xs text-[#666]">Average curve difference: {curveDifference.toFixed(0)}/100</p>
+                {album.title==="Jubilee"?<Link href="/journey/jubilee" className="text-sm font-bold text-[#1559c8] underline">Explore album ↗</Link>:<button type="button" onClick={()=>setSelected(album)} className="text-sm font-bold text-[#1559c8] underline">Preview album ↗</button>}
+              </div>)}</div>
+            </div>
+          </div>}
         </div>
         <button type="button" onClick={()=>setShowMatches(true)} className="mt-7 rounded-full bg-[#ed3449] px-7 py-4 text-base font-black text-white shadow-[3px_4px_0_#ffc5ce] transition hover:-translate-y-0.5">Find my matches ↗</button>
         {showMatches&&<div aria-live="polite" className="mt-8 border-t border-[#d7e0f1] pt-6"><h3 className="text-xl font-black">Your top three album matches ↓</h3><p className="mt-1 text-sm text-[#555]">Ranked by run-length proximity and your chosen illustrative energy pattern.</p><div className="mt-4 grid gap-3 md:grid-cols-3">{ranked.map(({album,difference},i)=><div key={album.title} className="rounded-xl border border-[#e2e7f1] bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-[#1559c8]">MATCH 0{i+1}</p><p className="mt-2 text-lg font-black">{album.title}</p><p className="text-sm text-[#555]">{album.artist}</p><p className="mt-2 text-xs font-semibold">{album.minutes} min · {difference===0?"Exact duration":difference>0?`${difference} min longer`:`${Math.abs(difference)} min shorter`}</p><EnergyMap values={album.energy} accent="#1559c8"/>{album.title==="Jubilee"?<Link href="/journey/jubilee" className="text-sm font-black text-[#1559c8] underline">Explore & listen ↗</Link>:<button type="button" onClick={()=>setSelected(album)} className="text-sm font-black text-[#1559c8] underline">Preview journey ↗</button>}</div>)}</div></div>}
