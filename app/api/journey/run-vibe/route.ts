@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -27,9 +27,26 @@ export async function POST(request: Request) {
       contents: "Create an imaginative, illustrative running energy journey for a " + minutes +
         "-minute run. User description: " + description +
         ". Return a short title (max 55 characters), one-sentence description, and exactly 10 energy numbers from 0 to 100, sampled evenly throughout the run. Do not claim to analyze real audio.",
-      config: { responseMimeType: "application/json", temperature: 0.7 }
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "A short evocative title" },
+            description: { type: Type.STRING, description: "One sentence about the energy progression" },
+            energy: {
+              type: Type.ARRAY,
+              description: "Exactly ten energy intensity values between 0 and 100, from beginning to end",
+              items: { type: Type.INTEGER }
+            }
+          },
+          required: ["title", "description", "energy"]
+        },
+        temperature: 0.7
+      }
     });
-    const value: unknown = JSON.parse(response.text || "{}");
+    if (!response.text) throw new Error("Empty Gemini response");
+    const value: unknown = JSON.parse(response.text);
     if (!value || typeof value !== "object") throw new Error("Invalid output");
     const data = value as Record<string, unknown>;
     if (typeof data.title !== "string" || typeof data.description !== "string" ||
@@ -55,7 +72,7 @@ export async function POST(request: Request) {
     if (/404|not found|not supported|model/.test(normalized)) {
       return NextResponse.json({ error: "The Gemini model is unavailable for this API key or free tier. The model selection needs updating." }, { status: 502 });
     }
-    if (/invalid output|json|parse/.test(normalized)) {
+    if (/invalid output|json|parse|empty gemini response/.test(normalized)) {
       return NextResponse.json({ error: "Gemini returned a response the app couldn't interpret. Please try again." }, { status: 502 });
     }
     return NextResponse.json({ error: "Gemini couldn't complete the request. Please try again later." }, { status: 502 });
