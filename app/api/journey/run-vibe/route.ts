@@ -22,7 +22,10 @@ export async function POST(request: Request) {
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
+    let response: Awaited<ReturnType<typeof ai.models.generateContent>> | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite",
       contents: "Create an imaginative, illustrative running energy journey for a " + minutes +
         "-minute run. User description: " + description +
@@ -47,7 +50,16 @@ export async function POST(request: Request) {
         temperature: 0.7,
         thinkingConfig: { thinkingBudget: 0 }
       }
-    });
+        });
+        break;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const temporary = /503|unavailable|high demand|overloaded/i.test(message);
+        if (!temporary || attempt === 2) throw error;
+        await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+      }
+    }
+    if (!response) throw new Error("No Gemini response");
     const raw = response.text?.trim();
     if (!raw) {
       console.error("Gemini response diagnostics:", JSON.stringify({
@@ -94,7 +106,10 @@ export async function POST(request: Request) {
     if (/403|permission.denied|api key not valid|api_key_invalid|401|unauthorized/.test(normalized)) {
       return NextResponse.json({ error: "Gemini rejected the API key or its permissions. Check the GEMINI_API_KEY setting in Vercel." }, { status: 502 });
     }
-    if (/404|not found|not supported|model/.test(normalized)) {
+    if (/503|unavailable|high demand|overloaded/.test(normalized)) {
+      return NextResponse.json({ error: "Gemini is temporarily overloaded. We retried automatically, but Google is still busy. Please try again in a few minutes." }, { status: 503 });
+    }
+    if (/404|not found|not supported|model.*not found/.test(normalized)) {
       return NextResponse.json({ error: "The Gemini model is unavailable for this API key or free tier. The model selection needs updating." }, { status: 502 });
     }
     if (/invalid output|json|parse|empty gemini response/.test(normalized)) {
