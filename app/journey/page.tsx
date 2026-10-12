@@ -29,6 +29,31 @@ export default function JourneyPage() {
   const [runMinutes, setRunMinutes] = useState(40);
   const [pattern, setPattern] = useState("Build");
   const [showMatches, setShowMatches] = useState(false);
+  const [vibePrompt, setVibePrompt] = useState("");
+  const [vibeResult, setVibeResult] = useState<{ title: string; description: string; energy: number[] } | null>(null);
+  const [vibeLoading, setVibeLoading] = useState(false);
+  const [vibeError, setVibeError] = useState("");
+  async function generateVibe() {
+    if (!vibePrompt.trim() || vibeLoading) return;
+    setVibeLoading(true);
+    setVibeError("");
+    setVibeResult(null);
+    try {
+      const response = await fetch("/api/journey/run-vibe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: vibePrompt, minutes: runMinutes })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Generation failed.");
+      setVibeResult(result);
+    } catch (error) {
+      setVibeError(error instanceof Error ? error.message : "Generation failed.");
+    } finally {
+      setVibeLoading(false);
+    }
+  }
+
   const patterns = ["Steady", "Build", "High energy", "Varied"];
   const ranked = useMemo(() => albums.map(album => {
     const avg = album.energy.reduce((a,b)=>a+b,0)/album.energy.length;
@@ -55,6 +80,15 @@ export default function JourneyPage() {
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#1559c8]">YOUR RUN / YOUR RECORD</p><h2 className="mt-2 text-3xl font-black md:text-4xl">Find my run album ✳</h2><p className="mt-2 text-sm text-[#555]">Match your running time with a musical energy pattern.</p></div><span className="rotate-[7deg] rounded-full bg-[#ffe447] px-5 py-3 text-sm font-black">🍋 MATCHMAKER</span></div>
         <div className="grid gap-7 md:grid-cols-2"><div><label htmlFor="run-length" className="flex items-center justify-between font-bold"><span>How long is your run?</span><span className="text-2xl text-[#1559c8]">{runMinutes} min</span></label><input id="run-length" type="range" min="20" max="90" step="5" value={runMinutes} onChange={e=>{setRunMinutes(Number(e.target.value));setShowMatches(false);}} className="mt-5 w-full accent-[#1559c8]"/><div className="mt-1 flex justify-between text-xs text-[#666]"><span>20 min</span><span>90 min</span></div></div>
         <div><p className="mb-3 font-bold">What energy pattern sounds right?</p><div className="flex flex-wrap gap-2">{patterns.map(v=><button key={v} type="button" aria-pressed={pattern===v} onClick={()=>{setPattern(v);setShowMatches(false);}} className={`rounded-full border-2 px-4 py-2 text-sm font-bold transition ${pattern===v?"border-[#1559c8] bg-[#1559c8] text-white":"border-[#d3ddf1] bg-white hover:border-[#1559c8]"}`}>{v}</button>)}</div><p className="mt-3 text-xs text-[#666]">Energy curves are sample data for now—not measured BPM or audio features.</p></div></div>
+        <div className="mt-7 rounded-2xl border border-[#c9d8f3] bg-white p-5">
+          <p className="text-xs font-black uppercase tracking-widest text-[#1559c8]">✳ AI RUN VIBE STUDIO</p>
+          <label htmlFor="vibe-prompt" className="mt-2 block text-lg font-black">Describe your ideal run</label>
+          <p className="mt-1 text-sm text-[#555]">Try “start dreamy, build to a huge peak, and finish peacefully.”</p>
+          <textarea id="vibe-prompt" maxLength={500} rows={3} value={vibePrompt} onChange={e=>setVibePrompt(e.target.value)} placeholder="I want my run to feel..." className="mt-3 w-full rounded-xl border border-[#c9d8f3] p-3 text-sm" />
+          <button type="button" disabled={vibeLoading || !vibePrompt.trim()} onClick={generateVibe} className="mt-3 rounded-full bg-[#1559c8] px-6 py-3 text-sm font-black text-white disabled:opacity-50">{vibeLoading ? "Generating your map…" : "✳ Generate AI vibe map"}</button>
+          {vibeError && <p role="alert" className="mt-3 text-sm text-red-700">{vibeError}</p>}
+          {vibeResult && <div className="mt-5 rounded-xl bg-[#fff9e8] p-4" aria-live="polite"><h3 className="text-xl font-black">{vibeResult.title}</h3><p className="mt-1 text-sm text-[#555]">{vibeResult.description}</p><EnergyMap values={vibeResult.energy} accent="#ed3449"/><p className="text-xs text-[#666]">AI-generated illustrative energy · not actual audio analysis</p></div>}
+        </div>
         <button type="button" onClick={()=>setShowMatches(true)} className="mt-7 rounded-full bg-[#ed3449] px-7 py-4 text-base font-black text-white shadow-[3px_4px_0_#ffc5ce] transition hover:-translate-y-0.5">Find my matches ↗</button>
         {showMatches&&<div aria-live="polite" className="mt-8 border-t border-[#d7e0f1] pt-6"><h3 className="text-xl font-black">Your top three album matches ↓</h3><p className="mt-1 text-sm text-[#555]">Ranked by run-length proximity and your chosen illustrative energy pattern.</p><div className="mt-4 grid gap-3 md:grid-cols-3">{ranked.map(({album,difference},i)=><div key={album.title} className="rounded-xl border border-[#e2e7f1] bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-[#1559c8]">MATCH 0{i+1}</p><p className="mt-2 text-lg font-black">{album.title}</p><p className="text-sm text-[#555]">{album.artist}</p><p className="mt-2 text-xs font-semibold">{album.minutes} min · {difference===0?"Exact duration":difference>0?`${difference} min longer`:`${Math.abs(difference)} min shorter`}</p><EnergyMap values={album.energy} accent="#1559c8"/>{album.title==="Jubilee"?<Link href="/journey/jubilee" className="text-sm font-black text-[#1559c8] underline">Explore & listen ↗</Link>:<button type="button" onClick={()=>setSelected(album)} className="text-sm font-black text-[#1559c8] underline">Preview journey ↗</button>}</div>)}</div></div>}
       </section>
