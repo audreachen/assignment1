@@ -113,7 +113,7 @@ export default function StickerBook() {
       if(profile?.display_name&&!cancelled)setDisplayName(profile.display_name);
       if(profile?.avatar_path){const {data}=await supabase!.storage.from("profile-pictures").createSignedUrl(profile.avatar_path,3600);if(!cancelled)setAvatarUrl(data?.signedUrl??"");}
       {
-        const restored=await Promise.all(items.map(async item=>{
+        const restored=await Promise.all((items??[]).map(async item=>{
           const photo=item.kind==="photo"&&item.image_path?(await supabase!.storage.from("journal-photos").createSignedUrl(item.image_path,3600)).data?.signedUrl:undefined;
           return {id:item.client_id||item.id,label:item.label,sub:item.subtitle||"",x:Number(item.pos_x),y:Number(item.pos_y),rotate:Number(item.rotation),color:item.color||"#fff1a9",kind:item.kind as Sticker["kind"],note:item.note||undefined,photo,page:item.page_number} as Sticker;
         }));
