@@ -12,6 +12,14 @@ const albums: Album[] = [
   { title: "Melodrama", artist: "Lorde", minutes: 41, mood: "Electric", arc: "Big peaks", colors: "from-[#4168a4] via-[#263b7a] to-[#d17c83]", energy: [70,91,67,82,45,87,73,54,92,40], initials: "M" },
   { title: "Punisher", artist: "Phoebe Bridgers", minutes: 41, mood: "Reflective", arc: "Slow burn", colors: "from-[#7d8897] via-[#545c6c] to-[#282f3a]", energy: [23,35,32,50,43,60,51,70,92,38], initials: "P" },
   { title: "What's Your Pleasure?", artist: "Jessie Ware", minutes: 53, mood: "Bright", arc: "Keep moving", colors: "from-[#d78d8e] via-[#b34c69] to-[#6b365b]", energy: [68,78,74,89,82,73,91,85,76,92], initials: "W" },
+  { title: "Emotion", artist: "Carly Rae Jepsen", minutes: 45, mood: "Bright", arc: "Pop sparkle", colors: "from-[#e97a9c] via-[#b94c7e] to-[#77366d]", energy: [63,77,83,70,89,76,92,82,86,96], initials: "E" },
+  { title: "Currents", artist: "Tame Impala", minutes: 52, mood: "Electric", arc: "Psychedelic waves", colors: "from-[#8e9ed9] via-[#7869b2] to-[#e3a3c8]", energy: [48,72,64,82,55,91,70,83,59,77], initials: "C" },
+  { title: "Golden Hour", artist: "Kacey Musgraves", minutes: 45, mood: "Reflective", arc: "Sunlit drift", colors: "from-[#e9c86b] via-[#d8a46d] to-[#b67f93]", energy: [38,48,56,61,53,66,58,71,64,49], initials: "G" },
+  { title: "Renaissance", artist: "Beyoncé", minutes: 62, mood: "Electric", arc: "Dance-floor climb", colors: "from-[#aaa9b2] via-[#6c718a] to-[#282c44]", energy: [64,75,86,81,92,78,94,85,98,91], initials: "R" },
+  { title: "The Rise and Fall of a Midwest Princess", artist: "Chappell Roan", minutes: 49, mood: "Bright", arc: "Glittering peaks", colors: "from-[#e87a8f] via-[#cf4669] to-[#8d294d]", energy: [57,79,70,93,61,87,95,75,91,83], initials: "T" },
+  { title: "Nurture", artist: "Porter Robinson", minutes: 59, mood: "Reflective", arc: "Hopeful lift", colors: "from-[#a7cfb2] via-[#8db8b9] to-[#608ca9]", energy: [25,38,49,55,66,62,78,85,91,72], initials: "N" },
+  { title: "BRAT", artist: "Charli xcx", minutes: 42, mood: "Electric", arc: "Club rush", colors: "from-[#b3da53] via-[#83b43c] to-[#4c792a]", energy: [84,92,80,97,87,93,74,98,88,96], initials: "B" },
+  { title: "Sling", artist: "Clairo", minutes: 44, mood: "Reflective", arc: "Quiet unfolding", colors: "from-[#b9a58f] via-[#8e887e] to-[#6a776e]", energy: [23,33,42,37,49,53,45,60,55,39], initials: "S" },
 ];
 
 const journalSupabase = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL && process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY
@@ -40,6 +48,26 @@ export default function JourneyPage() {
   const [voteStatus, setVoteStatus] = useState("");
   const [voteBusy, setVoteBusy] = useState(false);
   const [myRating, setMyRating] = useState<number | null>(null);
+  type SavedVibe = { id: string; map_title: string; map_description: string; energy: number[]; rating: number; created_at: string };
+  const [savedVibes, setSavedVibes] = useState<SavedVibe[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [savedMessage, setSavedMessage] = useState("");
+  async function loadSavedVibes() {
+    if (!journalSupabase) { setSavedMessage("Supabase isn't configured."); return; }
+    setSavedLoading(true); setSavedMessage("");
+    try {
+      const { data: { user } } = await journalSupabase.auth.getUser();
+      if (!user) { setSavedVibes([]); setSavedMessage("Sign in to My Sticker Book to view saved ratings."); return; }
+      const { data, error } = await journalSupabase.from("vibe_map_votes")
+        .select("id,map_title,map_description,energy,rating,created_at")
+        .eq("user_id",user.id).order("created_at",{ascending:false}).limit(30);
+      if (error) throw error;
+      setSavedVibes(data ?? []);
+      if (!data?.length) setSavedMessage("No rated maps yet. Generate and rate one above!");
+    } catch (error) {
+      setSavedMessage(error instanceof Error ? error.message : "Couldn't load your ratings.");
+    } finally { setSavedLoading(false); }
+  }
   const vibeMatches = useMemo(() => {
     if (!vibeResult) return [];
     return albums.map(album => {
@@ -66,6 +94,7 @@ export default function JourneyPage() {
       }, { onConflict: "user_id,map_fingerprint" });
       if (error) throw error;
       setMyRating(rating); setVoteStatus("Your rating was saved to your account ✓");
+      void loadSavedVibes();
     } catch (error) {
       setVoteStatus(error instanceof Error ? error.message : "Could not save rating.");
     } finally { setVoteBusy(false); }
@@ -153,8 +182,14 @@ export default function JourneyPage() {
         <button type="button" onClick={()=>setShowMatches(true)} className="mt-7 rounded-full bg-[#ed3449] px-7 py-4 text-base font-black text-white shadow-[3px_4px_0_#ffc5ce] transition hover:-translate-y-0.5">Find my matches ↗</button>
         {showMatches&&<div aria-live="polite" className="mt-8 border-t border-[#d7e0f1] pt-6"><h3 className="text-xl font-black">Your top three album matches ↓</h3><p className="mt-1 text-sm text-[#555]">Ranked by run-length proximity and your chosen illustrative energy pattern.</p><div className="mt-4 grid gap-3 md:grid-cols-3">{ranked.map(({album,difference},i)=><div key={album.title} className="rounded-xl border border-[#e2e7f1] bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-[#1559c8]">MATCH 0{i+1}</p><p className="mt-2 text-lg font-black">{album.title}</p><p className="text-sm text-[#555]">{album.artist}</p><p className="mt-2 text-xs font-semibold">{album.minutes} min · {difference===0?"Exact duration":difference>0?`${difference} min longer`:`${Math.abs(difference)} min shorter`}</p><EnergyMap values={album.energy} accent="#1559c8"/>{album.title==="Jubilee"?<Link href="/journey/jubilee" className="text-sm font-black text-[#1559c8] underline">Explore & listen ↗</Link>:<button type="button" onClick={()=>setSelected(album)} className="text-sm font-black text-[#1559c8] underline">Preview journey ↗</button>}</div>)}</div></div>}
       </section>
+      <section id="saved-vibes" className="mb-12 rounded-3xl border-2 border-[#e7c7d1] bg-[#fff6f8] p-6 md:p-9">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-[#b04465]">YOUR SAVED LISTENING IDEAS</p><h2 className="mt-2 text-2xl font-black">My rated vibe maps ♡</h2><p className="mt-1 text-sm text-[#555]">Revisit the AI maps you've rated. Saved privately to your account.</p></div>
+        <button type="button" disabled={savedLoading} onClick={()=>void loadSavedVibes()} className="rounded-full bg-[#b04465] px-5 py-3 text-sm font-black text-white disabled:opacity-50">{savedLoading?"Loading…":"Load my saved maps ↗"}</button></div>
+        {savedMessage && <p role="status" className="mt-4 text-sm">{savedMessage} {savedMessage.startsWith("Sign in")&&<Link href="/journey/profile" className="font-bold text-[#1559c8] underline">Sign in ↗</Link>}</p>}
+        {savedVibes.length>0 && <div className="mt-5 grid gap-4 md:grid-cols-2">{savedVibes.map(v=><div key={v.id} className="rounded-2xl border border-[#edd7dc] bg-white p-4"><p className="font-black">{v.map_title}</p><p className="mt-1 text-sm text-[#555]">{v.map_description}</p><EnergyMap values={v.energy} accent="#b04465"/><p className="text-sm font-black text-[#b04465]">{v.rating} / 5 ★</p></div>)}</div>}
+      </section>
       <section id="discover" className="scroll-mt-6">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1559c8]">STICKER SHEET / 001</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Pick a sticker ↓</h2></div><p className="text-sm text-[#666]">{filtered.length} albums to explore</p></div>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1559c8]">STICKER SHEET / 001</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Pick a sticker ↓</h2><p className="mt-1 text-sm text-[#666]">All six original albums plus eight more real records · illustrative energy sketches</p></div><p className="text-sm text-[#666]">{filtered.length} albums to explore</p></div>
         <div className="mb-7 flex flex-wrap items-center gap-3 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3">
           <span className="mr-1 text-xs font-bold uppercase tracking-wider">I'm feeling</span>
           {["All","Bright","Electric","Reflective"].map(v=><button key={v} type="button" onClick={()=>setMood(v)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${mood===v?"border-[#292d28] bg-[#292d28] text-white":"border-[#dedede] bg-white hover:border-[#292d28]"}`}>{v}</button>)}
