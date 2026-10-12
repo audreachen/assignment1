@@ -43,7 +43,21 @@ export async function POST(request: Request) {
       energy: data.energy.map((n: number) => Math.round(n))
     });
   } catch (error) {
-    console.error("Gemini run vibe failed:", error instanceof Error ? error.message : "unknown error");
-    return NextResponse.json({ error: "AI generation is temporarily unavailable. Try again." }, { status: 502 });
+    const detail = error instanceof Error ? error.message : "unknown error";
+    console.error("Gemini run vibe failed:", detail);
+    const normalized = detail.toLowerCase();
+    if (/429|quota|resource.exhausted|rate limit/.test(normalized)) {
+      return NextResponse.json({ error: "Gemini's free-tier quota or rate limit was reached. Please wait and try again, or check your Google AI Studio usage." }, { status: 429 });
+    }
+    if (/403|permission.denied|api key not valid|api_key_invalid|401|unauthorized/.test(normalized)) {
+      return NextResponse.json({ error: "Gemini rejected the API key or its permissions. Check the GEMINI_API_KEY setting in Vercel." }, { status: 502 });
+    }
+    if (/404|not found|not supported|model/.test(normalized)) {
+      return NextResponse.json({ error: "The Gemini model is unavailable for this API key or free tier. The model selection needs updating." }, { status: 502 });
+    }
+    if (/invalid output|json|parse/.test(normalized)) {
+      return NextResponse.json({ error: "Gemini returned a response the app couldn't interpret. Please try again." }, { status: 502 });
+    }
+    return NextResponse.json({ error: "Gemini couldn't complete the request. Please try again later." }, { status: 502 });
   }
 }
