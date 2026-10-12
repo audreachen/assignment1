@@ -15,6 +15,18 @@ const starter: Sticker[] = [
 const supabase = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL && process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY ? createClient(process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL, process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY) : null;
 const storageKey="album-journeys-junk-journal-v1";
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
+const fruitTypes = ["🍓","🍊","🍒","🍋","🍐","🍑","🍎","🫐","🍇","🥝","🍉","🍍"];
+type WeeklyFruit = { week_start: string };
+function fruitForWeek(week: string) {
+  const number = Math.floor(Date.parse(week+"T00:00:00Z") / 604800000);
+  return fruitTypes[((number % fruitTypes.length) + fruitTypes.length) % fruitTypes.length];
+}
+function utcWeekStart() {
+  const now = new Date();
+  const day = (now.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()-day)).toISOString().slice(0,10);
+}
+
 
 export default function StickerBook() {
   const [stickers,setStickers]=useState<Sticker[]>(starter);
@@ -30,6 +42,9 @@ export default function StickerBook() {
   const [cloudReady,setCloudReady]=useState(false);
   const [cloudOwner,setCloudOwner]=useState<string|null>(null);
   const [authChecked,setAuthChecked]=useState(false);
+  const [weeklyFruits,setWeeklyFruits]=useState<WeeklyFruit[]>([]);
+  const [fruitStatus,setFruitStatus]=useState("");
+  const [fruitLoading,setFruitLoading]=useState(false);
 
   const [cloudMessage,setCloudMessage]=useState("");
   const [avatarUrl,setAvatarUrl]=useState("");
@@ -48,6 +63,29 @@ export default function StickerBook() {
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{setAccount(previous=>{const next=session?.user.id??null;if(previous!==next){setStickers(next?[]:starter);setActive(null);setAvatarUrl("");setCloudOwner(null);try{localStorage.removeItem(storageKey);}catch{}}return next;});setCloudReady(false);setAuthChecked(true);if(event==="PASSWORD_RECOVERY")setRecoveryMode(true);});
     return()=>subscription.unsubscribe();
   },[]);
+  useEffect(()=>{
+    if(!supabase||!account){setWeeklyFruits([]);setFruitStatus("");setFruitLoading(false);return;}
+    let cancelled=false;
+    setWeeklyFruits([]);
+    setFruitLoading(true);
+    setFruitStatus("");
+    const owner=account;
+    async function collectFruit(){
+      const client=supabase!;
+      const {error:insertError}=await client.from("journal_weekly_fruits")
+        .upsert({user_id:owner,week_start:utcWeekStart()},{onConflict:"user_id,week_start",ignoreDuplicates:true});
+      if(cancelled)return;
+      if(insertError){setFruitStatus("Your fruit could not be collected right now.");setFruitLoading(false);return;}
+      const {data,error}=await client.from("journal_weekly_fruits")
+        .select("week_start").eq("user_id",owner).order("week_start",{ascending:true});
+      if(cancelled)return;
+      if(error)setFruitStatus("Your fruit crate could not load right now.");
+      else {setWeeklyFruits(data??[]);setFruitStatus("");}
+      setFruitLoading(false);
+    }
+    void collectFruit();
+    return()=>{cancelled=true;};
+  },[account]);
   async function passwordAuth(){
     if(!supabase||authBusy)return;
     setAuthBusy(true);setCloudMessage("");
@@ -202,6 +240,20 @@ export default function StickerBook() {
         <div className="flex-1"><p className="font-black">Your music journal</p><p className="text-xs text-[#756b60]">{account?"Signed in — private cloud storage":"Sign in to save photos and stickers across devices"}</p></div>
         {recoveryMode?<form className="flex flex-wrap items-center gap-2" onSubmit={e=>{e.preventDefault();void updatePassword(newPassword);}}><input type="password" autoComplete="new-password" minLength={6} required placeholder="New password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} className="rounded-lg border p-2 text-sm"/><button disabled={authBusy} className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Save new password</button></form>:account?<><div className="flex flex-wrap items-center gap-2"><input aria-label="Scrapbook username" value={displayName} onChange={e=>setDisplayName(e.target.value)} maxLength={40} placeholder="Your scrapbook username" className="rounded-lg border p-2 text-sm"/><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void saveDisplayName()}>Save username</button></div><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{void uploadAvatar(e.target.files?.[0]);e.target.value="";}}/><button className="rounded-xl bg-[#fff1a9] px-3 py-2 text-sm font-bold" onClick={()=>avatarInput.current?.click()}>Upload profile picture</button><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void supabase?.auth.signOut()}>Sign out</button></>:supabase?<form className="flex flex-wrap items-center gap-2" onSubmit={e=>{e.preventDefault();void passwordAuth();}}><input type="email" autoComplete="email" required placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} className="rounded-lg border p-2 text-sm"/><input type="password" autoComplete={authMode==="signup"?"new-password":"current-password"} minLength={6} required placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="rounded-lg border p-2 text-sm"/>{authMode==="signup"&&<input required maxLength={40} placeholder="Choose a username" value={displayName} onChange={e=>setDisplayName(e.target.value)} className="rounded-lg border p-2 text-sm"/>}<button disabled={authBusy} className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">{authBusy?"Please wait…":authMode==="signup"?"Create account":"Sign in"}</button><button type="button" className="rounded-lg border px-3 py-2 text-sm font-bold" onClick={()=>{setAuthMode(authMode==="signup"?"login":"signup");setCloudMessage("");}}>{authMode==="signup"?"Already have an account?":"Create an account"}</button>{authMode==="login"&&<button type="button" disabled={authBusy} className="rounded-lg border px-3 py-2 text-sm font-bold" onClick={()=>void resetPassword()}>Forgot password?</button>}</form>:<p className="text-xs">Cloud configuration pending</p>}
         {cloudMessage&&<p role="status" className="w-full text-xs text-[#1355c8]">{cloudMessage}</p>}
+      </section>
+      <section aria-label="Weekly fruit crate" className="mb-6 overflow-hidden rounded-2xl border-2 border-[#b9793e] bg-[#fff2d4] p-5 shadow-[5px_6px_0_#e9d3a7]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><p className="text-[11px] font-black uppercase tracking-[.2em] text-[#925a29]">FRESH PICKED • ALBUM JOURNEYS</p><h2 className="mt-1 font-serif text-3xl font-black italic text-[#603b24]">The Little Fruit Crate 🍓</h2><p className="mt-1 text-sm text-[#765339]">Visit once in a new week to add another fruit. Your collection never resets.</p></div>
+          <div className="rotate-[5deg] rounded-lg border-2 border-dashed border-[#b9793e] bg-[#fffaf0] px-4 py-2 text-center"><span className="block text-2xl font-black text-[#754323]">{account?weeklyFruits.length:"—"}</span><span className="text-[10px] font-black uppercase tracking-widest text-[#925a29]">weeks picked</span></div>
+        </div>
+        <div className="relative mx-auto mt-5 max-w-2xl rounded-xl border-[7px] border-[#a96836] bg-[#c58a4d] p-4 shadow-[inset_0_4px_0_#e5b37b,0_7px_0_#86502d]" style={{backgroundImage:"repeating-linear-gradient(0deg,transparent 0px,transparent 49px,#89522d55 50px,#89522d55 54px)"}}>
+          <div className="flex min-h-28 flex-wrap items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#f4d6a1]/70 bg-[#f5d5a0]/40 px-3 py-5">
+            {!account?<p className="max-w-xs text-center font-serif text-lg font-bold italic text-[#603b24]">Sign in to start collecting your weekly fruit ♡</p>:fruitLoading?<p className="font-serif text-lg italic text-[#603b24]">Checking this week’s harvest…</p>:weeklyFruits.length===0?<p className="font-serif text-lg italic text-[#603b24]">Your first fruit is waiting! ✿</p>:weeklyFruits.map((fruit,i)=><span key={fruit.week_start} title={`Week of ${fruit.week_start}`} aria-label={`Fruit ${i+1}, collected week of ${fruit.week_start}`} className="inline-flex h-16 w-16 -rotate-6 items-center justify-center rounded-full bg-[#fff8e8]/80 text-4xl shadow-[2px_3px_0_#936032] transition-transform hover:rotate-6 hover:scale-110">{fruitForWeek(fruit.week_start)}</span>)}
+          </div>
+          <div className="mx-auto mt-3 w-fit rotate-[-2deg] rounded-sm border border-[#70421f] bg-[#f9e9c2] px-5 py-1 font-mono text-xs font-black uppercase tracking-[.15em] text-[#70421f]">Picked with love • Est. 2026</div>
+        </div>
+        {fruitStatus&&<p role="status" className="mt-3 text-sm font-semibold text-[#9a3b32]">{fruitStatus}</p>}
+        {account&&weeklyFruits.length>0&&<p className="mt-4 text-center text-xs font-bold text-[#765339]">This week’s fruit is in your crate ✓ Come back next Monday for another!</p>}
       </section>
       {account&&!cloudReady&&<p role="status" className="mb-4 rounded-xl bg-white p-3 text-sm font-semibold">Loading your private scrapbook…</p>}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">{account?"Your layout syncs to Supabase ✳":"Your layout saves in this browser ✳"}</span></div>
