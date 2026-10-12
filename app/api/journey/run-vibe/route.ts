@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -18,6 +20,34 @@ export async function POST(request: Request) {
   const minutes = Number(input.minutes);
   if (!description || description.length > 500 || !Number.isFinite(minutes) || minutes < 20 || minutes > 90) {
     return NextResponse.json({ error: "Provide a run description and valid duration." }, { status: 400 });
+  }
+
+  // Atomic database-backed limiter works across Vercel instances.
+  // Fail closed if its configuration or database is unavailable.
+  const supabaseUrl = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json({ error: "AI generation is temporarily unavailable." }, { status: 503 });
+  }
+  const ip = request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const bucket = createHash("sha256").update(ip + ":" + (process.env.GEMINI_API_KEY ?? "")).digest("hex");
+  try {
+    const limiter = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: claim, error: claimError } = await limiter.rpc("claim_ai_request", {
+      p_bucket_key: bucket, p_max_requests: 8, p_window_seconds: 3600
+    });
+    if (claimError || !Array.isArray(claim) || claim.length === 0) {
+      console.error("AI limiter unavailable", claimError?.code ?? "invalid result");
+      return NextResponse.json({ error: "AI generation is temporarily unavailable. Please try later." }, { status: 503 });
+    }
+    if (!claim[0].allowed) {
+      return NextResponse.json({ error: "You've reached the limit of 8 AI maps per hour. Please try again later." }, {
+        status: 429, headers: { "Retry-After": String(claim[0].retry_after_seconds ?? 3600) }
+      });
+    }
+  } catch {
+    return NextResponse.json({ error: "AI generation is temporarily unavailable. Please try later." }, { status: 503 });
   }
 
   try {
