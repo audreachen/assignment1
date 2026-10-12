@@ -200,13 +200,13 @@ export default function JourneyPage() {
           {filtered.map((album,i)=><button type="button" key={album.title} onClick={()=>window.location.assign(album.title==="Jubilee"?"/journey/jubilee":"/journey/album/"+album.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""))} className="group flex flex-col rounded-2xl bg-white p-3 text-left transition hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1559c8]">
             <div className="relative flex aspect-[1.18] items-center justify-center">
               <div className={`relative flex h-[88%] w-[91%] rotate-[-3deg] flex-col items-center justify-center overflow-hidden rounded-[48%_52%_46%_54%/54%_43%_57%_46%] border-[7px] border-white bg-gradient-to-br shadow-[0_0_0_2px_#e5e5e5,3px_6px_0_#ececec] transition duration-200 group-hover:rotate-[2deg] ${album.colors}`}>
-                {album.title==="Jubilee" && <img src="https://coverartarchive.org/release/7aa0673a-53b0-4cb8-9a94-9834b3c43b22/front" alt="" className="absolute inset-0 h-full w-full object-cover" />}<div className="absolute inset-[9%] rounded-[50%] border-2 border-white/60" />
+                <img src={`/api/journey/artwork?artist=${encodeURIComponent(album.artist)}&album=${encodeURIComponent(album.title)}`} alt="" loading="lazy" onError={e=>{e.currentTarget.style.display="none";}} className="absolute inset-0 z-20 h-full w-full object-cover" /><div className="absolute inset-[9%] rounded-[50%] border-2 border-white/60" />
                 <div className="absolute inset-[16%] rounded-[50%] border border-white/40" />
-                <span className={`relative z-10 max-w-[85%] text-center text-[clamp(0.9rem,2vw,1.4rem)] font-black uppercase tracking-wider text-white drop-shadow-md ${album.title==="Jubilee"?"opacity-0":""}`}>{album.artist}</span>
-                <span className={`relative z-10 mt-2 max-w-[85%] text-center font-serif text-[clamp(1.8rem,3.3vw,3rem)] font-black italic leading-[0.95] text-white drop-shadow-lg ${album.title==="Jubilee"?"opacity-0":""}`}>{album.title}</span>
-                <span className="relative z-10 mt-4 bg-white px-3 py-1 font-mono text-[10px] tracking-[0.25em] text-black">AJ—{String(i+1).padStart(4,"0")} ||||</span>
+                <span className={`relative z-10 max-w-[85%] text-center text-[clamp(0.7rem,1.4vw,1rem)] font-black uppercase tracking-wider text-white drop-shadow-md ${album.title==="Jubilee"?"opacity-0":""}`}>{album.artist}</span>
+                <span className={`relative z-10 mt-2 max-w-[78%] break-words text-center font-serif text-[clamp(1.1rem,2.2vw,2rem)] font-black italic leading-[0.95] text-white drop-shadow-lg ${album.title==="Jubilee"?"opacity-0":""}`}>{album.title}</span>
+                <span className="relative z-30 mt-4 bg-white px-3 py-1 font-mono text-[10px] tracking-[0.25em] text-black">AJ—{String(i+1).padStart(4,"0")} ||||</span>
               </div>
-              <span className="absolute bottom-5 right-0 rotate-[10deg] rounded-[45%] border-4 border-white bg-[#ffe447] px-3 py-3 text-center text-[11px] font-black uppercase leading-tight text-[#174d8b] shadow-[0_0_0_1px_#ddd]">{album.arc}</span>
+              <span className="absolute bottom-5 right-0 z-30 rotate-[10deg] rounded-[45%] border-4 border-white bg-[#ffe447] px-3 py-3 text-center text-[11px] font-black uppercase leading-tight text-[#174d8b] shadow-[0_0_0_1px_#ddd]">{album.arc}</span>
             </div>
             <div className="mt-2 px-2">
               <div className="flex items-center justify-between gap-2"><span className="font-bold">{album.title}</span><span className="shrink-0 text-xs text-[#555]">{album.minutes} min</span></div>
