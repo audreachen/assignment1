@@ -303,6 +303,7 @@ export default async function AlbumDetail({ params }: { params: Promise<{ slug: 
       <section className="grid items-center gap-9 py-12 md:grid-cols-2">
         <div className="relative mx-auto flex aspect-square w-full max-w-sm rotate-[-3deg] flex-col items-center justify-center overflow-hidden rounded-[46%_54%_49%_51%] border-[10px] border-white bg-gradient-to-br from-[#f0a9b7] via-[#a0a6d9] to-[#5278a5] p-8 text-center text-white shadow-[0_0_0_2px_#ddd,8px_9px_0_#f2f2f2]">
           <div className="absolute inset-8 rounded-full border-2 border-white/50"/>
+          <img src={`/api/journey/artwork?artist=${encodeURIComponent(album.artist)}&album=${encodeURIComponent(album.title)}`} alt={`${album.title} album cover`} className="absolute inset-0 z-20 h-full w-full object-cover" />
           <p className="relative z-10 text-sm font-bold uppercase tracking-widest">{album.artist}</p>
           <h1 className="relative z-10 mt-4 font-serif text-4xl font-black italic md:text-5xl">{album.title}</h1>
           <span className="absolute bottom-5 right-6 rotate-[8deg] rounded-full bg-[#ffe447] px-4 py-2 text-xs font-black text-black">AJ ✳</span>
