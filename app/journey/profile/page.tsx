@@ -28,6 +28,8 @@ export default function StickerBook() {
   const [recoveryMode,setRecoveryMode]=useState(false);
   const [newPassword,setNewPassword]=useState("");
   const [cloudReady,setCloudReady]=useState(false);
+  const [cloudOwner,setCloudOwner]=useState<string|null>(null);
+  const [authChecked,setAuthChecked]=useState(false);
 
   const [cloudMessage,setCloudMessage]=useState("");
   const [avatarUrl,setAvatarUrl]=useState("");
@@ -39,11 +41,11 @@ export default function StickerBook() {
   const [photoError,setPhotoError]=useState("");
   const drag=useRef<{id:string;offsetX:number;offsetY:number}|null>(null);
   useEffect(()=>{try {const raw=localStorage.getItem(storageKey);if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed.stickers)){const seen=new Set<string>();setStickers(parsed.stickers.filter((s:Sticker)=>{if(s.kind==="album"){const key=s.label.toLowerCase().trim();if(seen.has(key))return false;seen.add(key);}return true;}));}if(parsed.page===1||parsed.page===2)setPage(parsed.page);}}catch{}setReady(true);},[]);
-  useEffect(()=>{if(ready){try{localStorage.setItem(storageKey,JSON.stringify({stickers,page}));}catch{setPhotoError("Browser storage is full. Remove a photo to save new changes.");}}},[stickers,page,ready]);
+  useEffect(()=>{if(ready&&authChecked&&!account){try{localStorage.setItem(storageKey,JSON.stringify({stickers,page}));}catch{setPhotoError("Browser storage is full. Remove a photo to save new changes.");}}},[stickers,page,ready,authChecked,account]);
   useEffect(()=>{
     if(!supabase)return;
-    void supabase.auth.getUser().then(({data})=>setAccount(data.user?.id??null));
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{setAccount(session?.user.id??null);setCloudReady(false);if(event==="PASSWORD_RECOVERY")setRecoveryMode(true);});
+    void supabase.auth.getUser().then(({data})=>{setAccount(data.user?.id??null);setAuthChecked(true);});
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{setAccount(previous=>{const next=session?.user.id??null;if(previous!==next){setStickers(next?[]:starter);setActive(null);setAvatarUrl("");setCloudOwner(null);try{localStorage.removeItem(storageKey);}catch{}}return next;});setCloudReady(false);setAuthChecked(true);if(event==="PASSWORD_RECOVERY")setRecoveryMode(true);});
     return()=>subscription.unsubscribe();
   },[]);
   async function passwordAuth(){
@@ -110,19 +112,19 @@ export default function StickerBook() {
       if(error){setCloudMessage("Could not load your journal: "+error.message);return;}
       if(profile?.display_name&&!cancelled)setDisplayName(profile.display_name);
       if(profile?.avatar_path){const {data}=await supabase!.storage.from("profile-pictures").createSignedUrl(profile.avatar_path,3600);if(!cancelled)setAvatarUrl(data?.signedUrl??"");}
-      if(items?.length){
+      {
         const restored=await Promise.all(items.map(async item=>{
           const photo=item.kind==="photo"&&item.image_path?(await supabase!.storage.from("journal-photos").createSignedUrl(item.image_path,3600)).data?.signedUrl:undefined;
           return {id:item.client_id||item.id,label:item.label,sub:item.subtitle||"",x:Number(item.pos_x),y:Number(item.pos_y),rotate:Number(item.rotation),color:item.color||"#fff1a9",kind:item.kind as Sticker["kind"],note:item.note||undefined,photo,page:item.page_number} as Sticker;
         }));
         if(!cancelled)setStickers(restored);
       }
-      if(!cancelled){setCloudReady(true);setCloudMessage("Cloud journal connected ✓");}
+      if(!cancelled){setCloudOwner(account!);setCloudReady(true);setCloudMessage("Cloud journal connected ✓");}
     }
     void loadCloud();return()=>{cancelled=true;};
   },[account,ready]);
   useEffect(()=>{
-    if(!supabase||!account||!cloudReady)return;
+    if(!supabase||!account||!cloudReady||cloudOwner!==account)return;
     setCloudMessage("Saving journal changes…");
     const timer=setTimeout(async()=>{
       try {
@@ -148,7 +150,7 @@ export default function StickerBook() {
       } catch(e){setCloudMessage("Save failed: "+(e instanceof Error?e.message:"Unexpected upload error"));}
     },1200);
     return()=>clearTimeout(timer);
-  },[stickers,account,cloudReady]);
+  },[stickers,account,cloudReady,cloudOwner]);
   const shown=stickers.filter(s=>(s.page??(s.id.startsWith("page2-")?2:1))===page);
   const hasMelodrama=stickers.some(s=>s.kind==="album"&&s.label.toLowerCase().trim()==="melodrama");
   function startDrag(e:React.PointerEvent<HTMLButtonElement>,id:string){
@@ -201,12 +203,13 @@ export default function StickerBook() {
         {recoveryMode?<form className="flex flex-wrap items-center gap-2" onSubmit={e=>{e.preventDefault();void updatePassword(newPassword);}}><input type="password" autoComplete="new-password" minLength={6} required placeholder="New password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} className="rounded-lg border p-2 text-sm"/><button disabled={authBusy} className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Save new password</button></form>:account?<><div className="flex flex-wrap items-center gap-2"><input aria-label="Scrapbook username" value={displayName} onChange={e=>setDisplayName(e.target.value)} maxLength={40} placeholder="Your scrapbook username" className="rounded-lg border p-2 text-sm"/><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void saveDisplayName()}>Save username</button></div><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>{void uploadAvatar(e.target.files?.[0]);e.target.value="";}}/><button className="rounded-xl bg-[#fff1a9] px-3 py-2 text-sm font-bold" onClick={()=>avatarInput.current?.click()}>Upload profile picture</button><button className="rounded-xl border px-3 py-2 text-sm font-bold" onClick={()=>void supabase?.auth.signOut()}>Sign out</button></>:supabase?<form className="flex flex-wrap items-center gap-2" onSubmit={e=>{e.preventDefault();void passwordAuth();}}><input type="email" autoComplete="email" required placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} className="rounded-lg border p-2 text-sm"/><input type="password" autoComplete={authMode==="signup"?"new-password":"current-password"} minLength={6} required placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="rounded-lg border p-2 text-sm"/>{authMode==="signup"&&<input required maxLength={40} placeholder="Choose a username" value={displayName} onChange={e=>setDisplayName(e.target.value)} className="rounded-lg border p-2 text-sm"/>}<button disabled={authBusy} className="rounded-lg bg-[#1355c8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">{authBusy?"Please wait…":authMode==="signup"?"Create account":"Sign in"}</button><button type="button" className="rounded-lg border px-3 py-2 text-sm font-bold" onClick={()=>{setAuthMode(authMode==="signup"?"login":"signup");setCloudMessage("");}}>{authMode==="signup"?"Already have an account?":"Create an account"}</button>{authMode==="login"&&<button type="button" disabled={authBusy} className="rounded-lg border px-3 py-2 text-sm font-bold" onClick={()=>void resetPassword()}>Forgot password?</button>}</form>:<p className="text-xs">Cloud configuration pending</p>}
         {cloudMessage&&<p role="status" className="w-full text-xs text-[#1355c8]">{cloudMessage}</p>}
       </section>
+      {account&&!cloudReady&&<p role="status" className="mb-4 rounded-xl bg-white p-3 text-sm font-semibold">Loading your private scrapbook…</p>}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-2"><button onClick={()=>{setPage(1);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===1?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 01</button><button onClick={()=>{setPage(2);setActive(null);}} className={`rounded-full px-4 py-2 text-sm font-black ${page===2?"bg-[#1355c8] text-white":"bg-white text-[#1355c8]"}`}>Page 02</button></div><span className="text-xs font-semibold text-[#756b60]">{account?"Your layout syncs to Supabase ✳":"Your layout saves in this browser ✳"}</span></div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_245px]">
         <div ref={board} className="relative min-h-[650px] overflow-hidden rounded-[5px_19px_18px_6px] border border-[#d4c5a6] bg-[#f4e6c7] shadow-[8px_12px_0_#e0d7c4,12px_16px_25px_#a89d8640] md:min-h-[730px]" style={{backgroundImage:"repeating-linear-gradient(0deg,transparent 0px,transparent 29px,#9ca7a128 30px,#9ca7a128 31px),linear-gradient(90deg,#e9d7b4 0px,#e9d7b4 34px,#f9efda 35px,#f9efda 100%)"}}>
           <div className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#e2a9a9]"/><div className="pointer-events-none absolute right-6 top-5 rotate-[8deg] border-2 border-dashed border-[#bd7c66] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[#ae6b5b]">Collected with ♡</div>
           <span className="pointer-events-none absolute bottom-5 right-7 font-serif text-2xl italic text-[#b0a088]">{String(page).padStart(2,"0")}</span>
-          {shown.map(s=><button key={s.id} type="button" onPointerDown={e=>startDrag(e,s.id)} onPointerMove={moveDrag} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onClick={()=>setActive(s.id)} aria-label={`Move or edit ${s.label}`} className={`absolute flex touch-none select-none flex-col items-center justify-center text-center shadow-[3px_5px_9px_#5c493740] transition-shadow hover:shadow-[5px_8px_14px_#5c493760] ${active===s.id?"outline-2 outline-dashed outline-[#1355c8] outline-offset-4":""} ${s.kind==="album"?"h-36 w-36 rounded-[47%_53%_48%_52%] border-[6px] border-white p-3 md:h-44 md:w-44":s.kind==="note"?"h-36 w-40 p-4":s.kind==="photo"?"h-44 w-36 border-[7px] border-white bg-white p-1 md:h-52 md:w-44":"h-20 w-20 rounded-full border-4 border-white text-4xl"}`} style={{left:`${s.x}%`,top:`${s.y}%`,transform:`rotate(${s.rotate}deg)`,backgroundColor:s.color,cursor:"grab",zIndex:active===s.id?30:10}}>
+          {(!account||cloudReady)&&shown.map(s=><button key={s.id} type="button" onPointerDown={e=>startDrag(e,s.id)} onPointerMove={moveDrag} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onClick={()=>setActive(s.id)} aria-label={`Move or edit ${s.label}`} className={`absolute flex touch-none select-none flex-col items-center justify-center text-center shadow-[3px_5px_9px_#5c493740] transition-shadow hover:shadow-[5px_8px_14px_#5c493760] ${active===s.id?"outline-2 outline-dashed outline-[#1355c8] outline-offset-4":""} ${s.kind==="album"?"h-36 w-36 rounded-[47%_53%_48%_52%] border-[6px] border-white p-3 md:h-44 md:w-44":s.kind==="note"?"h-36 w-40 p-4":s.kind==="photo"?"h-44 w-36 border-[7px] border-white bg-white p-1 md:h-52 md:w-44":"h-20 w-20 rounded-full border-4 border-white text-4xl"}`} style={{left:`${s.x}%`,top:`${s.y}%`,transform:`rotate(${s.rotate}deg)`,backgroundColor:s.color,cursor:"grab",zIndex:active===s.id?30:10}}>
             {s.kind==="photo"?<><span className="block h-[80%] w-full overflow-hidden bg-[#eee]">{s.photo&&<img src={s.photo} alt={s.label} draggable={false} className="h-full w-full object-cover"/>}</span><span className="mt-2 font-serif text-xs italic">{s.label}</span></>:s.kind==="album"?<><span className="mb-2 text-[10px] font-black uppercase tracking-wider text-white drop-shadow">{s.sub}</span><span className="font-serif text-2xl font-black italic leading-none text-white drop-shadow-md">{s.label}</span><span className="mt-3 bg-white/90 px-2 py-1 font-mono text-[8px] text-[#222]">AJ ✳ RECORD CLUB</span></>:s.kind==="note"?<><span className="self-start font-serif text-xl font-bold italic">{s.label}</span><span className="mt-2 whitespace-pre-wrap font-serif text-sm italic leading-snug">{s.note}</span></>:<span>{s.label}</span>}
           </button>)}
           {shown.length===0&&<p className="absolute left-1/2 top-1/2 w-56 -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] text-center font-serif text-2xl italic text-[#aa9171]">A fresh page, just for you. ✿</p>}
