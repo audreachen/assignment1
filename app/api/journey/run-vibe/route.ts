@@ -37,27 +37,52 @@ export async function POST(request: Request) {
             energy: {
               type: Type.ARRAY,
               description: "Exactly ten energy intensity values between 0 and 100, from beginning to end",
-              items: { type: Type.INTEGER }
+              items: { type: Type.INTEGER, minimum: 0, maximum: 100 },
+              minItems: 10,
+              maxItems: 10
             }
           },
           required: ["title", "description", "energy"]
         },
-        temperature: 0.7
+        temperature: 0.7,
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
-    if (!response.text) throw new Error("Empty Gemini response");
-    const value: unknown = JSON.parse(response.text);
-    if (!value || typeof value !== "object") throw new Error("Invalid output");
+    const raw = response.text?.trim();
+    if (!raw) {
+      console.error("Gemini response diagnostics:", JSON.stringify({
+        kind: "empty",
+        finishReason: response.candidates?.[0]?.finishReason ?? null,
+        promptFeedback: response.promptFeedback?.blockReason ?? null,
+        parts: response.candidates?.[0]?.content?.parts?.length ?? 0
+      }));
+      return NextResponse.json({ error: "Gemini returned no text. Please try again.", code: "EMPTY_RESPONSE" }, { status: 502 });
+    }
+    let value: unknown;
+    try {
+      value = JSON.parse(raw.replace(/^\`\`\`(?:json)?\\s*/i, "").replace(/\\s*\`\`\`$/, ""));
+    } catch {
+      console.error("Gemini response diagnostics:", JSON.stringify({ kind: "non_json", length: raw.length, finishReason: response.candidates?.[0]?.finishReason ?? null }));
+      return NextResponse.json({ error: "Gemini generated text instead of valid JSON.", code: "NON_JSON" }, { status: 502 });
+    }
+    if (!value || typeof value !== "object") {
+      return NextResponse.json({ error: "Gemini returned an unexpected JSON structure.", code: "BAD_STRUCTURE" }, { status: 502 });
+    }
     const data = value as Record<string, unknown>;
-    if (typeof data.title !== "string" || typeof data.description !== "string" ||
-        !Array.isArray(data.energy) || data.energy.length !== 10 ||
-        !data.energy.every((n: unknown) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 100)) {
-      throw new Error("Invalid output");
+    const title = typeof data.title === "string" ? data.title.trim() : "";
+    const summary = typeof data.description === "string" ? data.description.trim() : "";
+    const energy = Array.isArray(data.energy) ? data.energy.map(Number) : [];
+    if (!title || !summary || energy.length !== 10 || !energy.every(n => Number.isFinite(n) && n >= 0 && n <= 100)) {
+      console.error("Gemini response diagnostics:", JSON.stringify({
+        kind: "schema_mismatch", keys: Object.keys(data),
+        energyLength: energy.length, titlePresent: !!title, descriptionPresent: !!summary
+      }));
+      return NextResponse.json({ error: "Gemini returned an incomplete energy curve.", code: "SCHEMA_MISMATCH" }, { status: 502 });
     }
     return NextResponse.json({
-      title: data.title.slice(0, 55),
-      description: data.description.slice(0, 250),
-      energy: data.energy.map((n: number) => Math.round(n))
+      title: title.slice(0, 55),
+      description: summary.slice(0, 250),
+      energy: energy.map(n => Math.round(n))
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown error";
