@@ -55,6 +55,28 @@ export default function StickerBook() {
   const photoInput=useRef<HTMLInputElement>(null);
   const [photoError,setPhotoError]=useState("");
   const drag=useRef<{id:string;offsetX:number;offsetY:number}|null>(null);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const title=params.get("collect");
+    const artist=params.get("artist");
+    if(!title||!artist)return;
+    const key="album-journeys-pending-cover";
+    sessionStorage.setItem(key,JSON.stringify({title,artist}));
+    window.history.replaceState(null,"",window.location.pathname);
+  },[]);
+  useEffect(()=>{
+    if(!ready||!authChecked||(account&&!cloudReady))return;
+    const key="album-journeys-pending-cover";
+    const pending=sessionStorage.getItem(key);
+    if(!pending)return;
+    try{
+      const {title,artist}=JSON.parse(pending) as {title:string;artist:string};
+      if(!title||!artist)return;
+      setStickers(previous=>previous.some(item=>item.kind==="album"&&item.label.toLowerCase()===title.toLowerCase())?previous:[...previous,{id:"cover-"+Date.now(),label:title,sub:artist,x:28,y:28,rotate:-5,color:"#f1b8c5",kind:"album",page:1}]);
+      setPage(1);
+      sessionStorage.removeItem(key);
+    }catch{sessionStorage.removeItem(key);}
+  },[ready,authChecked,account,cloudReady]);
   useEffect(()=>{try {const raw=localStorage.getItem(storageKey);if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed.stickers)){const seen=new Set<string>();setStickers(parsed.stickers.filter((s:Sticker)=>{if(s.kind==="album"){const key=s.label.toLowerCase().trim();if(seen.has(key))return false;seen.add(key);}return true;}));}if(parsed.page===1||parsed.page===2)setPage(parsed.page);}}catch{}setReady(true);},[]);
   useEffect(()=>{if(ready&&authChecked&&!account){try{localStorage.setItem(storageKey,JSON.stringify({stickers,page}));}catch{setPhotoError("Browser storage is full. Remove a photo to save new changes.");}}},[stickers,page,ready,authChecked,account]);
   useEffect(()=>{
@@ -262,7 +284,7 @@ export default function StickerBook() {
           <div className="pointer-events-none absolute bottom-0 left-[27px] top-0 w-px bg-[#e2a9a9]"/><div className="pointer-events-none absolute right-6 top-5 rotate-[8deg] border-2 border-dashed border-[#bd7c66] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[#ae6b5b]">Collected with ♡</div>
           <span className="pointer-events-none absolute bottom-5 right-7 font-serif text-2xl italic text-[#b0a088]">{String(page).padStart(2,"0")}</span>
           {(!account||cloudReady)&&shown.map(s=><button key={s.id} type="button" onPointerDown={e=>startDrag(e,s.id)} onPointerMove={moveDrag} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onClick={()=>setActive(s.id)} aria-label={`Move or edit ${s.label}`} className={`absolute flex touch-none select-none flex-col items-center justify-center text-center shadow-[3px_5px_9px_#5c493740] transition-shadow hover:shadow-[5px_8px_14px_#5c493760] ${active===s.id?"outline-2 outline-dashed outline-[#1355c8] outline-offset-4":""} ${s.kind==="album"?"h-36 w-36 rounded-[47%_53%_48%_52%] border-[6px] border-white p-3 md:h-44 md:w-44":s.kind==="note"?"h-36 w-40 p-4":s.kind==="photo"?"h-44 w-36 border-[7px] border-white bg-white p-1 md:h-52 md:w-44":"h-20 w-20 rounded-full border-4 border-white text-4xl"}`} style={{left:`${s.x}%`,top:`${s.y}%`,transform:`rotate(${s.rotate}deg)`,backgroundColor:s.color,cursor:"grab",zIndex:active===s.id?30:10}}>
-            {s.kind==="photo"?<><span className="block h-[80%] w-full overflow-hidden bg-[#eee]">{s.photo&&<img src={s.photo} alt={s.label} draggable={false} className="h-full w-full object-cover"/>}</span><span className="mt-2 font-serif text-xs italic">{s.label}</span></>:s.kind==="album"?<><span className="mb-2 text-[10px] font-black uppercase tracking-wider text-white drop-shadow">{s.sub}</span><span className="font-serif text-2xl font-black italic leading-none text-white drop-shadow-md">{s.label}</span><span className="mt-3 bg-white/90 px-2 py-1 font-mono text-[8px] text-[#222]">AJ ✳ RECORD CLUB</span></>:s.kind==="note"?<><span className="self-start font-serif text-xl font-bold italic">{s.label}</span><span className="mt-2 whitespace-pre-wrap font-serif text-sm italic leading-snug">{s.note}</span></>:<span>{s.label}</span>}
+            {s.kind==="album"?<><img src={`/api/journey/artwork?artist=${encodeURIComponent(s.sub)}&album=${encodeURIComponent(s.label)}`} alt={`${s.label} album artwork`} draggable={false} className="absolute inset-0 h-full w-full rounded-[inherit] object-cover" onError={e=>{e.currentTarget.style.display="none";}}/><span className="relative z-10 mt-auto rounded bg-black/65 px-2 py-1 text-[11px] font-black text-white">{s.label}</span></>:s.kind==="photo"?<><span className="block h-[80%] w-full overflow-hidden bg-[#eee]">{s.photo&&<img src={s.photo} alt={s.label} draggable={false} className="h-full w-full object-cover"/>}</span><span className="mt-2 font-serif text-xs italic">{s.label}</span></>:s.kind==="album"?<><span className="mb-2 text-[10px] font-black uppercase tracking-wider text-white drop-shadow">{s.sub}</span><span className="font-serif text-2xl font-black italic leading-none text-white drop-shadow-md">{s.label}</span><span className="mt-3 bg-white/90 px-2 py-1 font-mono text-[8px] text-[#222]">AJ ✳ RECORD CLUB</span></>:s.kind==="note"?<><span className="self-start font-serif text-xl font-bold italic">{s.label}</span><span className="mt-2 whitespace-pre-wrap font-serif text-sm italic leading-snug">{s.note}</span></>:<span>{s.label}</span>}
           </button>)}
           {shown.length===0&&<p className="absolute left-1/2 top-1/2 w-56 -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] text-center font-serif text-2xl italic text-[#aa9171]">A fresh page, just for you. ✿</p>}
         </div>
