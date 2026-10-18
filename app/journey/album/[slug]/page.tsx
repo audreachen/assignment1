@@ -314,6 +314,7 @@ export default async function AlbumDetail({ params }: { params: Promise<{ slug: 
           <p className="mt-3 text-xl text-[#555]">{album.artist}</p>
           <p className="mt-5 leading-relaxed text-[#555]">A {album.arc.toLowerCase()} listening journey. Explore this record as a complete album and see how its illustrative energy pattern might fit your next run.</p>
           <div className="mt-6 flex flex-wrap gap-2"><span className="rounded-full bg-[#ffe447] px-4 py-2 text-sm font-bold">{album.minutes} min</span><span className="rounded-full bg-[#e6f0ff] px-4 py-2 text-sm font-bold">{album.mood}</span><span className="rounded-full bg-[#e8f8ef] px-4 py-2 text-sm font-bold">{album.arc}</span></div>
+          <Link href={`/journey/profile?collect=${encodeURIComponent(album.title)}&artist=${encodeURIComponent(album.artist)}`} className="mt-5 inline-block rounded-full bg-[#fff0b4] px-5 py-3 text-sm font-black text-[#53351f]">✿ Add album-cover sticker to my journal</Link>
         </div>
       </section>
       <section className="rounded-2xl border border-[#e5e5e5] p-6 md:p-9">
@@ -326,6 +327,11 @@ export default async function AlbumDetail({ params }: { params: Promise<{ slug: 
           {album.energy.map((v,i)=><circle key={i} cx={i/(album.energy.length-1)*600} cy={150-v} r="5" fill="#1559c8"/>)}
         </svg>
         <div className="flex justify-between text-xs text-[#777]"><span>Album start</span><span>Album finish</span></div>
+      </section>
+      <section className="mt-6 rounded-2xl border border-[#e5e5e5] bg-[#fffaf0] p-6 md:p-9">
+        <h2 className="text-2xl font-black">Track-by-track tempo ♫</h2>
+        <p className="mt-2 text-sm text-[#655b50]">A separate BPM chart is coming once track-level tempo measurements have been verified. The energy map above is illustrative; we won't present invented BPM figures as measured data.</p>
+        <div className="mt-5 flex min-h-28 items-center justify-center rounded-xl border-2 border-dashed border-[#e3cba6] text-center font-serif italic text-[#8d7659]">Verified track BPM data pending ♪</div>
       </section>
       <section className="mt-9 rounded-2xl bg-[#f5f8ff] p-6 md:p-9">
         <h2 className="text-2xl font-black">Listen to the full album ♪</h2>
