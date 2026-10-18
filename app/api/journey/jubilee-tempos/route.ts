@@ -22,11 +22,22 @@ export async function GET() {
       url.searchParams.set("type","both");
       url.searchParams.set("lookup",`song:${title} artist:Japanese Breakfast`);
       url.searchParams.set("limit","20");
-      const response=await fetch(url,{headers:{"X-API-KEY":key},next:{revalidate:86400},signal:AbortSignal.timeout(7000)});
+      const response=await fetch(url,{headers:{"X-API-KEY":key},cache:"no-store",signal:AbortSignal.timeout(7000)});
       if(!response.ok){note(`upstream_http_${response.status}`);return fallback;}
       const data=await response.json() as {search?:Candidate[]};
-      const candidates=Array.isArray(data.search)?data.search:[];
-      if(candidates.length===0)note("no_search_results");
+      let candidates=Array.isArray(data.search)?data.search:[];
+      if(candidates.length===0){
+        const broad=new URL("https://api.getsong.co/search/");
+        broad.searchParams.set("type","song");
+        broad.searchParams.set("lookup",title);
+        broad.searchParams.set("limit","50");
+        try {
+          const fallbackResponse=await fetch(broad,{headers:{"X-API-KEY":key},cache:"no-store",signal:AbortSignal.timeout(7000)});
+          if(fallbackResponse.ok){const body=await fallbackResponse.json() as {search?:Candidate[]};candidates=Array.isArray(body.search)?body.search:[];}
+          else note(`broad_search_http_${fallbackResponse.status}`);
+        }catch{note("broad_search_network_error");}
+      }
+      if(candidates.length===0)note("no_search_results_after_broad_retry");
       const candidate=matchCandidate(title,candidates);
       if(candidates.length>0&&!candidate)note("no_exact_artist_title_album_match");
       const bpm=Number(candidate?.tempo);
@@ -35,5 +46,5 @@ export async function GET() {
       return {title,bpm,sourceUrl:candidate.uri,status:"matched"};
     }catch{note("network_or_parse_error");return fallback;}
   }));
-  return NextResponse.json({tracks:results,source:"GetSongBPM",diagnostics,note:"Database matches are provisional and may require independent tempo verification."},{headers:{"Cache-Control":"public, s-maxage=3600, stale-while-revalidate=86400"}});
+  return NextResponse.json({tracks:results,source:"GetSongBPM",diagnostics,note:"Database matches are provisional and may require independent tempo verification."},{headers:{"Cache-Control":"no-store"}});
 }
