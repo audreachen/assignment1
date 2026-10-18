@@ -39,7 +39,14 @@ export async function GET() {
       }
       if(candidates.length===0)note("no_search_results_after_broad_retry");
       const candidate=matchCandidate(title,candidates);
-      if(candidates.length>0&&!candidate)note("no_exact_artist_title_album_match");
+      if(candidates.length>0&&!candidate){
+        note("no_exact_artist_title_album_match");
+        const sameTitle=candidates.filter(c=>normalize(c.title??"")===normalize(title));
+        const sameArtist=sameTitle.filter(c=>Array.isArray(c.artist)?c.artist.some(a=>normalize(a.name??"")==="japanese breakfast"):normalize((c.artist as {name?:string}|undefined)?.name??"")==="japanese breakfast");
+        if(sameTitle.length===0)note("no_exact_title_in_candidates");
+        else if(sameArtist.length===0)note("no_exact_artist_in_title_matches");
+        else note("artist_title_match_but_album_missing_or_different");
+      }
       const bpm=Number(candidate?.tempo);
       if(!candidate)return fallback;
       if(!Number.isFinite(bpm)||bpm<40||bpm>220||!candidate.uri?.startsWith("https://getsongbpm.com/")){note("invalid_bpm_or_source_url");return fallback;}
