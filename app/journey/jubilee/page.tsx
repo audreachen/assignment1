@@ -1,4 +1,5 @@
 import Link from "next/link";
+import JubileeTempoExplorer from "./TempoExplorer";
 
 const tracks = [
   "Paprika", "Be Sweet", "Kokomo, IN", "Slide Tackle", "Posing in Bondage",
@@ -25,7 +26,7 @@ export default function JubileePage() {
       <section className="rounded-2xl border border-[#e5e5e5] p-6 md:p-9"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-2xl font-black">The energy map ↗</h2><span className="rounded-full bg-[#f1f1f1] px-3 py-1 text-xs font-bold">Illustrative, not audio analysis</span></div><p className="mt-2 text-sm text-[#666]">A speculative shape for the listening journey. Tap a track below to find its place in the sequence.</p>
       <svg viewBox="0 0 600 170" className="mt-5 w-full" role="img" aria-label="Illustrative energy profile across ten tracks"><line x1="0" x2="600" y1="151" y2="151" stroke="#ddd" strokeDasharray="4 5"/><polygon points={`0,151 ${coords} 600,151`} fill="#e8497b" opacity=".12"/><polyline points={coords} stroke="#e8497b" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>{energy.map((v,i)=><circle key={i} cx={(i/(energy.length-1))*600} cy={150-v} r="5" fill="#1559c8"/>)}</svg>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">{tracks.map((track,i)=><div key={track} className="flex items-center gap-3 rounded-lg bg-[#f7f8fc] px-4 py-3"><span className="font-mono text-xs text-[#1559c8]">{String(i+1).padStart(2,"0")}</span><span className="text-sm font-semibold">{track}</span></div>)}</div></section>
-      <section className="mt-6 rounded-2xl border border-[#e5e5e5] bg-[#fffaf0] p-6 md:p-9"><h2 className="text-2xl font-black">Track-by-track tempo ♫</h2><p className="mt-2 text-sm text-[#655b50]">We are preparing a separate BPM chart using verified tempo measurements. The energy map above remains an illustrative listening profile, not a measured tempo chart.</p><div className="mt-5 flex min-h-28 items-center justify-center rounded-xl border-2 border-dashed border-[#e3cba6] font-serif italic text-[#8d7659]">Verified track BPM data pending ♪</div></section>
+      <JubileeTempoExplorer />
       <section className="mt-9 rounded-2xl bg-[#f5f8ff] p-6 md:p-9"><h2 className="text-2xl font-black">Listen to the album ♪</h2><p className="mt-2 mb-5 text-sm text-[#555]">Spotify's official embedded player. Playback and sign-in options depend on Spotify.</p><iframe title="Jubilee by Japanese Breakfast on Spotify" src={`https://open.spotify.com/embed/album/${spotifyAlbumId}?utm_source=generator`} width="100%" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" className="rounded-xl" /><a href={`https://open.spotify.com/album/${spotifyAlbumId}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-bold text-[#1559c8] underline">Open in Spotify ↗</a></section>
 
     </div>
