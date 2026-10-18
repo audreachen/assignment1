@@ -284,6 +284,22 @@ const albums = [
   }
 ];
 
+const spotifyAlbumIds: Record<string,string> = {
+  "imaginal-disk": "4HTy9WFTYooRjE9giTmzAF",
+  "titanic-rising": "53VKICyqCf91sVkTdFrzKX",
+  "melodrama": "4JeJPyNnsB3tqnHR7RL5v5",
+  "punisher": "6Pp6qGEywDdofgFC1oFbSH",
+  "what-s-your-pleasure": "1CTm3ARqDETSm7GfvNYNJp",
+  "emotion": "6Zpf7RlSRIavYGwvsuj94C",
+  "currents": "79dL7FLiJFOO0EoehUHQBv",
+  "golden-hour": "0bGwtulR9pGiuo7vES9dqp",
+  "renaissance": "6FJxoadUE4JNVwWHghBwnb",
+  "the-rise-and-fall-of-a-midwest-princess": "0XKconI47eiBP6qPYHsx9f",
+  "nurture": "3QITXlmmt93E176jzVqKUb",
+  "brat": "2lIZef4lzdvZkiiCzvPKj7",
+  "sling": "3GrXqCA3AMa03zCgWkWYqN"
+};
+
 export function generateStaticParams() {
   return albums.map(album => ({ slug: album.slug }));
 }
@@ -293,7 +309,6 @@ export default async function AlbumDetail({ params }: { params: Promise<{ slug: 
   const album = albums.find(item => item.slug === slug);
   if (!album) notFound();
   const coords = album.energy.map((v, i) => `${i / (album.energy.length - 1) * 600},${150 - v}`).join(" ");
-  const search = encodeURIComponent(album.artist + " " + album.title);
   return <main className="min-h-screen bg-white text-[#161616]">
     <div className="mx-auto max-w-5xl px-5 py-8 md:px-10">
       <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-5">
@@ -336,7 +351,8 @@ export default async function AlbumDetail({ params }: { params: Promise<{ slug: 
       <section className="mt-9 rounded-2xl bg-[#f5f8ff] p-6 md:p-9">
         <h2 className="text-2xl font-black">Listen to the full album ♪</h2>
         <p className="mt-2 text-sm text-[#555]">Find the official album on Spotify. Playback availability depends on your Spotify account and region.</p>
-        <a href={`https://open.spotify.com/search/${search}`} target="_blank" rel="noopener noreferrer" className="mt-5 inline-block rounded-full bg-[#1559c8] px-6 py-3 text-sm font-black text-white">Find on Spotify ↗</a>
+        <iframe title={`${album.title} by ${album.artist} on Spotify`} src={`https://open.spotify.com/embed/album/${spotifyAlbumIds[album.slug]}?utm_source=generator`} width="100%" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" className="mt-5 rounded-xl" />
+        <a href={`https://open.spotify.com/album/${spotifyAlbumIds[album.slug]}`} target="_blank" rel="noopener noreferrer" className="mt-5 inline-block rounded-full bg-[#1559c8] px-6 py-3 text-sm font-black text-white">Open album in Spotify ↗</a>
         <Link href="/journey#match" className="ml-4 mt-5 inline-block text-sm font-black text-[#1559c8] underline">Try the AI run matchmaker ↗</Link>
       </section>
     </div>
