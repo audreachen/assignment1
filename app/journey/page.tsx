@@ -105,9 +105,10 @@ export default function JourneyPage() {
     setVibeError("");
     setVibeResult(null); setMyRating(null); setVoteStatus("");
     try {
+      const { data: sessionData } = journalSupabase ? await journalSupabase.auth.getSession() : { data: { session: null } };
       const response = await fetch("/api/journey/run-vibe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(sessionData.session ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}) },
         body: JSON.stringify({ description: vibePrompt, minutes: runMinutes })
       });
       const result = await response.json();
@@ -184,7 +185,7 @@ export default function JourneyPage() {
         {showMatches&&<div aria-live="polite" className="mt-8 border-t border-[#d7e0f1] pt-6"><h3 className="text-xl font-black">Your top three album matches ↓</h3><p className="mt-1 text-sm text-[#555]">Ranked by run-length proximity and your chosen illustrative energy pattern.</p><div className="mt-4 grid gap-3 md:grid-cols-3">{ranked.map(({album,difference},i)=><div key={album.title} className="rounded-xl border border-[#e2e7f1] bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-[#1559c8]">MATCH 0{i+1}</p><p className="mt-2 text-lg font-black">{album.title}</p><p className="text-sm text-[#555]">{album.artist}</p><p className="mt-2 text-xs font-semibold">{album.minutes} min · {difference===0?"Exact duration":difference>0?`${difference} min longer`:`${Math.abs(difference)} min shorter`}</p><EnergyMap values={album.energy} accent="#1559c8"/>{album.title==="Jubilee"?<Link href="/journey/jubilee" className="text-sm font-black text-[#1559c8] underline">Explore & listen ↗</Link>:<button type="button" onClick={()=>window.location.assign("/journey/album/"+album.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""))} className="text-sm font-black text-[#1559c8] underline">Explore album ↗</button>}</div>)}</div></div>}
       </section>
       <section id="saved-vibes" className="mb-12 rounded-3xl border-2 border-[#e7c7d1] bg-[#fff6f8] p-6 md:p-9">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-[#b04465]">YOUR SAVED LISTENING IDEAS</p><h2 className="mt-2 text-2xl font-black">My rated vibe maps ♡</h2><p className="mt-1 text-sm text-[#555]">Revisit the AI maps you've rated. Saved privately to your account.</p></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-[#b04465]">YOUR SAVED LISTENING IDEAS</p><h2 className="mt-2 text-2xl font-black">My rated vibe maps ♡</h2><p className="mt-1 text-sm text-[#555]">Revisit the AI maps you&apos;ve rated. Saved privately to your account.</p></div>
         <button type="button" disabled={savedLoading} onClick={()=>void loadSavedVibes()} className="rounded-full bg-[#b04465] px-5 py-3 text-sm font-black text-white disabled:opacity-50">{savedLoading?"Loading…":"Load my saved maps ↗"}</button></div>
         {savedMessage && <p role="status" className="mt-4 text-sm">{savedMessage} {savedMessage.startsWith("Sign in")&&<Link href="/journey/profile" className="font-bold text-[#1559c8] underline">Sign in ↗</Link>}</p>}
         {savedVibes.length>0 && <div className="mt-5 grid gap-4 md:grid-cols-2">{savedVibes.map(v=><div key={v.id} className="rounded-2xl border border-[#edd7dc] bg-white p-4"><p className="font-black">{v.map_title}</p><p className="mt-1 text-sm text-[#555]">{v.map_description}</p><EnergyMap values={v.energy} accent="#b04465"/><p className="text-sm font-black text-[#b04465]">{v.rating} / 5 ★</p></div>)}</div>}
@@ -192,7 +193,7 @@ export default function JourneyPage() {
       <section id="discover" className="scroll-mt-6">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1559c8]">STICKER SHEET / 001</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Pick a sticker ↓</h2></div><p className="text-sm text-[#666]">{filtered.length} albums to explore</p></div>
         <div className="mb-7 flex flex-wrap items-center gap-3 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3">
-          <span className="mr-1 text-xs font-bold uppercase tracking-wider">I'm feeling</span>
+          <span className="mr-1 text-xs font-bold uppercase tracking-wider">I&apos;m feeling</span>
           {["All","Bright","Electric","Reflective"].map(v=><button key={v} type="button" onClick={()=>setMood(v)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${mood===v?"border-[#292d28] bg-[#292d28] text-white":"border-[#dedede] bg-white hover:border-[#292d28]"}`}>{v}</button>)}
           <select aria-label="Album duration" value={duration} onChange={e=>setDuration(e.target.value)} className="ml-auto rounded-full border border-[#d9d0c0] bg-white px-4 py-2 text-sm font-semibold"><option>Any length</option><option>Under 45 min</option><option>45+ min</option></select>
         </div>
@@ -226,3 +227,4 @@ export default function JourneyPage() {
     {selected&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1e221f]/75 p-4" onClick={()=>setSelected(null)}><div role="dialog" aria-modal="true" aria-label={selected.title+" journey"} onClick={e=>e.stopPropagation()} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border-2 border-[#292d28] bg-white p-6 shadow-xl md:p-9"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#1559c8]">Inside the sleeve</p><h2 className="mt-2 text-3xl font-black">{selected.title}</h2><p className="text-[#666]">{selected.artist} · {selected.minutes} min</p></div><button onClick={()=>setSelected(null)} aria-label="Close album journey" className="rounded-full border border-[#292d28] px-3 py-1 font-bold">✕</button></div><div className="mt-7 rounded-xl bg-[#f3f7ff] p-5"><p className="text-xs font-bold uppercase tracking-widest">The energy map / illustrative</p><EnergyMap values={selected.energy}/><div className="flex justify-between text-xs text-[#716b61]"><span>First track</span><span>Last track</span></div></div><p className="mt-6 text-sm leading-relaxed text-[#555]">A {selected.arc.toLowerCase()} through {selected.mood.toLowerCase()} sounds. This is an early visual sketch of the album journey. Track-by-track interpretation and your own run log are coming next.</p><button onClick={()=>setSelected(null)} className="mt-6 rounded-full bg-[#292d28] px-5 py-3 text-sm font-bold text-white">Back to the crate ↗</button></div></div>}
   </main>;
 }
+

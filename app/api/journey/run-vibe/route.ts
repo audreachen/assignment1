@@ -22,6 +22,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Provide a run description and valid duration." }, { status: 400 });
   }
 
+  const runtimeToken = process.env.JOURNEY_RUNTIME_TOKEN;
+  if (!runtimeToken) return NextResponse.json({ error: "AI generation logging is temporarily unavailable." }, { status: 503 });
+
   // Atomic database-backed limiter works across Vercel instances.
   // Fail closed if its configuration or database is unavailable.
   const supabaseUrl = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL;
@@ -50,101 +53,91 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI generation is temporarily unavailable. Please try later." }, { status: 503 });
   }
 
+  const db = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  let userId: string | null = null;
+  const bearer = request.headers.get("authorization");
+  if (bearer) {
+    const token = bearer.match(/^Bearer (.+)$/i)?.[1];
+    if (!token) return NextResponse.json({ error: "Invalid sign-in token." }, { status: 401 });
+    const { data, error } = await db.auth.getUser(token);
+    if (error || !data.user) return NextResponse.json({ error: "Your session expired. Please sign in again." }, { status: 401 });
+    userId = data.user.id;
+  }
+  type Step = { id: string; prompt_template: string; model_key: string; temperature: number };
+  type Config = { chain_id: string; steps: Step[]; terms: unknown[]; examples: unknown[] };
+  let requestId: string | null = null;
+  async function rpc(name: string, values: Record<string, unknown>) {
+    const result = await db.rpc(name, { p_token: runtimeToken, ...values });
+    if (result.error) throw new Error("Generation audit unavailable: " + result.error.code);
+    return result.data;
+  }
   try {
+    const config = await rpc("journey_runtime_config", {}) as Config;
+    if (!config?.steps?.length) throw new Error("No enabled generation chain");
+    requestId = await rpc("journey_begin_request", { p_chain_id: config.chain_id, p_input: { description, minutes }, p_user_id: userId }) as string;
     const ai = new GoogleGenAI({ apiKey });
-    let response: Awaited<ReturnType<typeof ai.models.generateContent>> | undefined;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
-      contents: "Create an imaginative, illustrative running energy journey for a " + minutes +
-        "-minute run. User description: " + description +
-        ". Return a short title (max 55 characters), one-sentence description, and exactly 10 energy numbers from 0 to 100, sampled evenly throughout the run. Do not claim to analyze real audio.",
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING, description: "A short evocative title" },
-            description: { type: Type.STRING, description: "One sentence about the energy progression" },
-            energy: {
-              type: Type.ARRAY,
-              description: "Exactly ten energy intensity values between 0 and 100, from beginning to end",
-              items: { type: Type.INTEGER, minimum: 0, maximum: 100 },
-              minItems: 10,
-              maxItems: 10
+    let previousOutput = "";
+    for (const step of config.steps) {
+      const prompt = step.prompt_template.replaceAll("{{minutes}}", String(minutes)).replaceAll("{{description}}", description)
+        + (previousOutput ? "\nPrevious step output: " + previousOutput : "")
+        + "\nVocabulary: " + JSON.stringify(config.terms)
+        + "\nExample inputs and outputs (illustrations only): " + JSON.stringify(config.examples);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const started = Date.now();
+        let output: string | null = null;
+        let failure: unknown;
+        try {
+          const response = await ai.models.generateContent({
+            model: step.model_key,
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  energy: { type: Type.ARRAY, items: { type: Type.INTEGER, minimum: 0, maximum: 100 }, minItems: 10, maxItems: 10 }
+                },
+                required: ["title", "description", "energy"]
+              },
+              temperature: Number(step.temperature),
+              thinkingConfig: { thinkingBudget: 0 },
+              httpOptions: { timeout: 20000 }
             }
-          },
-          required: ["title", "description", "energy"]
-        },
-        temperature: 0.7,
-        thinkingConfig: { thinkingBudget: 0 }
+          });
+          output = response.text?.trim() ?? "";
+          if (!output) throw new Error("Empty Gemini response");
+        } catch (error) { failure = error; }
+        // Persist every actual provider attempt, including errors, before continuing.
+        const errorText = failure ? (failure instanceof Error ? failure.message : String(failure)).slice(0,4000) : null;
+        await rpc("journey_record_response", { p_request_id: requestId, p_step_id: step.id, p_model_key: step.model_key,
+          p_prompt: prompt, p_output: output, p_error: errorText, p_duration_ms: Date.now() - started });
+        if (failure) {
+          if (!/503|unavailable|high demand|overloaded/i.test(errorText ?? "") || attempt === 2) throw failure;
+          await new Promise(resolve => setTimeout(resolve, 700 * (attempt+1)));
+        } else { previousOutput = output!; break; }
       }
-        });
-        break;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const temporary = /503|unavailable|high demand|overloaded/i.test(message);
-        if (!temporary || attempt === 2) throw error;
-        await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
-      }
     }
-    if (!response) throw new Error("No Gemini response");
-    const raw = response.text?.trim();
-    if (!raw) {
-      console.error("Gemini response diagnostics:", JSON.stringify({
-        kind: "empty",
-        finishReason: response.candidates?.[0]?.finishReason ?? null,
-        promptFeedback: response.promptFeedback?.blockReason ?? null,
-        parts: response.candidates?.[0]?.content?.parts?.length ?? 0
-      }));
-      return NextResponse.json({ error: "Gemini returned no text. Please try again.", code: "EMPTY_RESPONSE" }, { status: 502 });
-    }
-    let value: unknown;
-    try {
-      value = JSON.parse(raw.replace(/^\`\`\`(?:json)?\\s*/i, "").replace(/\\s*\`\`\`$/, ""));
-    } catch {
-      console.error("Gemini response diagnostics:", JSON.stringify({ kind: "non_json", length: raw.length, finishReason: response.candidates?.[0]?.finishReason ?? null }));
-      return NextResponse.json({ error: "Gemini generated text instead of valid JSON.", code: "NON_JSON" }, { status: 502 });
-    }
-    if (!value || typeof value !== "object") {
-      return NextResponse.json({ error: "Gemini returned an unexpected JSON structure.", code: "BAD_STRUCTURE" }, { status: 502 });
-    }
+    const value: unknown = JSON.parse(previousOutput.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""));
+    if (!value || typeof value !== "object") throw new Error("Invalid output structure");
     const data = value as Record<string, unknown>;
     const title = typeof data.title === "string" ? data.title.trim() : "";
     const summary = typeof data.description === "string" ? data.description.trim() : "";
-    const energy = Array.isArray(data.energy) ? data.energy.map(Number) : [];
-    if (!title || !summary || energy.length !== 10 || !energy.every(n => Number.isFinite(n) && n >= 0 && n <= 100)) {
-      console.error("Gemini response diagnostics:", JSON.stringify({
-        kind: "schema_mismatch", keys: Object.keys(data),
-        energyLength: energy.length, titlePresent: !!title, descriptionPresent: !!summary
-      }));
-      return NextResponse.json({ error: "Gemini returned an incomplete energy curve.", code: "SCHEMA_MISMATCH" }, { status: 502 });
-    }
-    return NextResponse.json({
-      title: title.slice(0, 55),
-      description: summary.slice(0, 250),
-      energy: energy.map(n => Math.round(n))
-    });
+    const energy = Array.isArray(data.energy) ? data.energy : [];
+    if (!title || !summary || energy.length !== 10 || !energy.every(n => Number.isInteger(n) && n >= 0 && n <= 100)) throw new Error("Invalid output energy map");
+    const output = { title: title.slice(0,55), description: summary.slice(0,250), energy };
+    await rpc("journey_finish_request", { p_request_id: requestId, p_output: output });
+    return NextResponse.json(output);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown error";
-    console.error("Gemini run vibe failed:", detail);
-    const normalized = detail.toLowerCase();
-    if (/429|quota|resource.exhausted|rate limit/.test(normalized)) {
-      return NextResponse.json({ error: "Gemini's free-tier quota or rate limit was reached. Please wait and try again, or check your Google AI Studio usage." }, { status: 429 });
+    const detail = error instanceof Error ? error.message : "Unknown generation error";
+    if (requestId) {
+      try { await rpc("journey_finish_request", { p_request_id: requestId, p_error: detail.slice(0,4000) }); }
+      catch { console.error("Could not finalize generation audit", requestId); }
     }
-    if (/403|permission.denied|api key not valid|api_key_invalid|401|unauthorized/.test(normalized)) {
-      return NextResponse.json({ error: "Gemini rejected the API key or its permissions. Check the GEMINI_API_KEY setting in Vercel." }, { status: 502 });
-    }
-    if (/503|unavailable|high demand|overloaded/.test(normalized)) {
-      return NextResponse.json({ error: "Gemini is temporarily overloaded. We retried automatically, but Google is still busy. Please try again in a few minutes." }, { status: 503 });
-    }
-    if (/404|not found|not supported|model.*not found/.test(normalized)) {
-      return NextResponse.json({ error: "The Gemini model is unavailable for this API key or free tier. The model selection needs updating." }, { status: 502 });
-    }
-    if (/invalid output|json|parse|empty gemini response/.test(normalized)) {
-      return NextResponse.json({ error: "Gemini returned a response the app couldn't interpret. Please try again." }, { status: 502 });
-    }
-    return NextResponse.json({ error: "Gemini couldn't complete the request. Please try again later." }, { status: 502 });
+    console.error("Run-vibe generation failed", { requestId, category: /audit/.test(detail) ? "audit" : "provider_or_output" });
+    if (/429|quota|resource.exhausted|rate limit/i.test(detail)) return NextResponse.json({ error: "Gemini's quota or rate limit was reached. Please wait and try again." }, { status: 429 });
+    if (/503|unavailable|high demand|overloaded|audit|enabled generation chain/i.test(detail)) return NextResponse.json({ error: "AI generation is temporarily unavailable. Please try again later." }, { status: 503 });
+    return NextResponse.json({ error: "AI generation could not complete. Please try again later." }, { status: 502 });
   }
 }
