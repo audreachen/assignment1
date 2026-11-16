@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Album Journeys",
-  description: "Discover albums, collect stickers, and make a music scrapbook.",
+  description: "Discover complete albums for your next run, create an AI soundtrack card, and remember your running favorites.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

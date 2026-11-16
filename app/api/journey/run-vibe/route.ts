@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     if (error || !data.user) return NextResponse.json({ error: "Your session expired. Please sign in again." }, { status: 401 });
     userId = data.user.id;
   }
+  if (!userId) return NextResponse.json({ error: "Sign in to create and save your AI soundtrack." }, { status: 401 });
   type Step = { id: string; prompt_template: string; model_key: string; temperature: number };
   type Config = { chain_id: string; steps: Step[]; terms: unknown[]; examples: unknown[] };
   let requestId: string | null = null;
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
     if (!title || !summary || energy.length !== 10 || !energy.every(n => Number.isInteger(n) && n >= 0 && n <= 100)) throw new Error("Invalid output energy map");
     const output = { title: title.slice(0,55), description: summary.slice(0,250), energy };
     await rpc("journey_finish_request", { p_request_id: requestId, p_output: output });
-    return NextResponse.json(output);
+    return NextResponse.json({ ...output, requestId });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown generation error";
     if (requestId) {
