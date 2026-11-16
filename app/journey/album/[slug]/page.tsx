@@ -32,7 +32,7 @@ export default async function AlbumDetail({ params }: { params: Promise<{ slug: 
   return <main className="min-h-screen bg-white text-[#161616]">
     <div className="mx-auto max-w-5xl px-5 py-8 md:px-10">
       <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-5">
-        <Link href="/journey#discover" className="font-black text-[#1559c8]">← Back to album journeys ✳</Link>
+        <Link href="/journey/crate" className="font-black text-[#1559c8]">← Back to album journeys ✳</Link>
         <Link href="/journey/profile" className="rounded-full bg-[#1559c8] px-4 py-2 text-sm font-black text-white">My Sticker Book ↗</Link>
       </nav>
       <section className="grid items-center gap-9 py-12 md:grid-cols-2">

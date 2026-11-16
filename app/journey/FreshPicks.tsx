@@ -113,7 +113,7 @@ export default function FreshPicks() {
       </article>;
     })}</div>
     {picks.length === 0 && <p className="mt-6 rounded-2xl border-2 border-dashed border-[#9cae83] p-8 text-center">This basket is empty. Try another preference or bring back dismissed picks.</p>}
-    <div className="mt-6 flex flex-wrap items-center justify-between gap-3"><a href="#discover" className="font-bold text-[#24523b] underline underline-offset-4">Dig through all {albums.length} records ↗</a>{dismissed.length > 0 && <button onClick={reset} className="text-xs font-bold text-[#5d6656] underline">Bring back dismissed picks</button>}<Link href="/journey/profile#run-journal" className="text-sm font-bold text-[#24523b]">My running records ↗</Link></div>
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3"><Link href="/journey/crate" className="font-bold text-[#24523b] underline underline-offset-4">Dig through all {albums.length} records ↗</Link>{dismissed.length > 0 && <button onClick={reset} className="text-xs font-bold text-[#5d6656] underline">Bring back dismissed picks</button>}<Link href="/journey/profile#run-journal" className="text-sm font-bold text-[#24523b]">My running records ↗</Link></div>
     {message && <p role="status" className="mt-4 text-sm font-bold text-[#24523b]">{message}</p>}
   </section>;
 }
