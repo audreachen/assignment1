@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import RunJournal from "../RunJournal";
+import { albums } from "../catalog";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -12,7 +14,7 @@ const starter: Sticker[] = [
   { id:"tape-1",label:"✿",sub:"",x:79,y:64,rotate:16,color:"#f3a8bd",kind:"decoration" },
   { id:"punisher",label:"Punisher",sub:"Phoebe Bridgers",x:10,y:65,rotate:7,color:"#9ba6b3",kind:"album" },
 ];
-const albumCollection = [{"title":"Jubilee","artist":"Japanese Breakfast"},{"title":"Imaginal Disk","artist":"Magdalena Bay"},{"title":"Titanic Rising","artist":"Weyes Blood"},{"title":"Melodrama","artist":"Lorde"},{"title":"Punisher","artist":"Phoebe Bridgers"},{"title":"What's Your Pleasure?","artist":"Jessie Ware"},{"title":"Emotion","artist":"Carly Rae Jepsen"},{"title":"Currents","artist":"Tame Impala"},{"title":"Golden Hour","artist":"Kacey Musgraves"},{"title":"Renaissance","artist":"Beyoncé"},{"title":"The Rise and Fall of a Midwest Princess","artist":"Chappell Roan"},{"title":"Nurture","artist":"Porter Robinson"},{"title":"BRAT","artist":"Charli xcx"},{"title":"Sling","artist":"Clairo"}];
+const albumCollection = albums;
 const supabase = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL && process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY ? createClient(process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL, process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY) : null;
 const storageKey="album-journeys-junk-journal-v1";
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
@@ -293,6 +295,7 @@ export default function StickerBook() {
           <p className="mt-6 text-xs leading-relaxed text-[#746d65]">Tip: drag stickers with your mouse or finger. Tap one to rotate it or edit its note. Photos are compressed in your browser and uploaded to private Supabase storage when you sign in. The starter stickers are examples, not verified listening history.</p>
         </aside>
       </div>
+      <div className="mt-12"><RunJournal key={account || "signed-out"} /></div>
     </div>
   </main>;
 }

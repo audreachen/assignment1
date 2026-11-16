@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RunnerPicks from "../RunnerPicks";
 
 
 const tracks = [
@@ -23,7 +24,8 @@ export default function JubileePage() {
       </section>
       <section className="rounded-2xl border border-[#e5e5e5] p-6 md:p-9"><h2 className="text-2xl font-black">Ten tracks. Hear what carries you.</h2><p className="mt-2 text-sm text-[#555]">A personal running pick from Audrea. Follow the sequence, notice the changes between tracks, and listen for the builds within songs. You choose when to push.</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">{tracks.map((track,i)=><div key={track} className="flex items-center gap-3 rounded-lg bg-[#f7f8fc] px-4 py-3"><span className="font-mono text-xs text-[#1559c8]">{String(i+1).padStart(2,"0")}</span><span className="text-sm font-semibold">{track}</span></div>)}</div>
-      <Link href="/journey#run-journal" className="mt-5 inline-block rounded-full bg-[#1559c8] px-5 py-3 text-sm font-bold text-white">Remember this run ↗</Link></section>
+      <Link href="/journey/profile#run-journal" className="mt-5 inline-block rounded-full bg-[#1559c8] px-5 py-3 text-sm font-bold text-white">Remember this run ↗</Link></section>
+      <RunnerPicks albumTitle="Jubilee" />
       <section className="mt-9 rounded-2xl bg-[#f5f8ff] p-6 md:p-9"><h2 className="text-2xl font-black">Listen to the album ♪</h2><p className="mt-2 mb-5 text-sm text-[#555]">Spotify's official embedded player. Playback and sign-in options depend on Spotify.</p><iframe title="Jubilee by Japanese Breakfast on Spotify" src={`https://open.spotify.com/embed/album/${spotifyAlbumId}?utm_source=generator`} width="100%" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" className="rounded-xl" /><a href={`https://open.spotify.com/album/${spotifyAlbumId}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-bold text-[#1559c8] underline">Open in Spotify ↗</a></section>
 
     </div>

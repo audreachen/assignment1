@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { albums } from "./catalog";
 const db = process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL && process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY ? createClient(process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_URL,process.env.NEXT_PUBLIC_ALBUM_JOURNEYS_SUPABASE_KEY) : null;
-const journalAlbums = [...albums.map(a=>a.title), 'you seem pretty sad for a girl so in love', 'Dirty Deeds Done Dirt Cheap'];
+const journalAlbums = albums.map(a=>a.title);
 type Entry={id:string;album_title:string;status:string;run_date:string|null;minutes:number|null;note:string};
 export default function RunJournal(){
  const [title,setTitle]=useState(albums[0].title),[status,setStatus]=useState('Want to try'),[date,setDate]=useState(''),[minutes,setMinutes]=useState(''),[note,setNote]=useState(''),[entries,setEntries]=useState<Entry[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
