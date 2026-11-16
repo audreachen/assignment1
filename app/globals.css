@@ -19,3 +19,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Paper labels and produce stickers for the running record stand. */
+.fresh-market { padding: 30px 0 8px; }
+.market-gallery { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 34px 24px; padding: 16px 7px 12px; }
+.market-card { min-width: 0; border: 7px solid #fffdf2; box-shadow: 0 0 0 1px #ded9c7, 4px 7px 0 #d9d2b780, 7px 12px 18px #4d4c3020; padding: 8px; transition: translate .2s; }
+.market-card:hover { translate: 0 -5px; }
+.market-card-inner { height: 100%; border: 1px dashed currentColor; border-radius: inherit; padding: 23px 18px 15px; }
+.market-barcode { background: repeating-linear-gradient(90deg,currentColor 0px,currentColor 1px,transparent 1px,transparent 3px,currentColor 3px,currentColor 5px,transparent 5px,transparent 7px); }
+@media(max-width: 900px) { .market-gallery { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width: 600px) { .market-gallery { display: flex; gap: 22px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 20px 12px 26px; } .market-card { flex: 0 0 85%; scroll-snap-align: center; } .market-card-inner { padding: 21px 17px 15px; } }
+@media(prefers-reduced-motion:reduce) { .market-card { transition:none; } }
